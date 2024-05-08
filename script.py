@@ -1,9 +1,12 @@
 import pandas as pd
 import seaborn
 from matplotlib import pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import accuracy_score
 
 
-data_maths = pd.read_csv('./data/Maths.csv')
+data_math = pd.read_csv('./data/Maths.csv')
 data_port = pd.read_csv('./data/Portuguese.csv')
 
 """*Explaining Columns*
@@ -40,19 +43,27 @@ health = current health status (1=very bad to 5=very good)
 absences = number of school absences (0-93)
 G1-G3 = first/second/final grade (0-20)
 """
-cat_cols = ['school', 'address', 'famsize', 'Pstatus', 'Medu', 'Fedu', 'Mjob', 'Fjob', 'reason', 'guardian',
+cat_cols = ['sex', 'school', 'address', 'famsize', 'Pstatus', 'Medu', 'Fedu', 'Mjob', 'Fjob', 'reason', 'guardian',
+            'schoolsup', 'famsup', 'paid', 'activities', 'nursery', 'higher', 'internet', 'romantic',
             'G1', 'G2', 'G3']
-for data in [data_maths, data_port]:
-    for col in cat_cols:
-        data[col] = pd.Categorical(data[col])
+
+
+data_math[cat_cols] = data_math[cat_cols].astype('category')
+data_port[cat_cols] = data_port[cat_cols].astype('category')
 
 def rename_education(data, parent):
     data[parent] = data[parent].cat.rename_categories(
         {0: "none", 1: "primary education", 2: "5th to 9th", 3: "secondary education", 4: "higher education"})
 
 
-rename_education(data_maths, 'Fedu')
+rename_education(data_math, 'Fedu')
 rename_education(data_port, 'Fedu')
-rename_education(data_maths, 'Medu')
+rename_education(data_math, 'Medu')
 rename_education(data_port, 'Medu')
+
+Y_math = data_math[['G1', 'G2', 'G3']]
+X_math = data_math[data_math.columns.drop(Y_math)]
+
+Y_port = data_port[['G1', 'G2', 'G3']]
+X_port = data_port[data_port.columns.drop(Y_port)]
 
