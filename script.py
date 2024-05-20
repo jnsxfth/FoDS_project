@@ -251,20 +251,30 @@ def RF_algo(data, n_estimators, label):
     accuracy = accuracy_score(y_test, y_pred)
     precision = precision_score(y_test, y_pred, average='weighted')
     f1 = f1_score(y_test, y_pred, average='weighted')
-    print(f"Accuracy: {accuracy:.4f}\nPrecision: {precision:.4f}\nF1: {f1:.4f}")
     #Get most important features
     feature_importances = rf_classifier.feature_importances_
     feature_importance_df = pd.DataFrame({"Feature": X.columns, "Importance": feature_importances})
     feature_importance_df = feature_importance_df.sort_values(by="Importance", ascending=False)
-    print(feature_importance_df.head(7))
 
-overview = pd.DataFrame(columns=['Accuracy', 'Precision', 'F1', 'main feature'])
+#Define an overview table for the model results
+overview = pd.DataFrame(columns=['Accuracy', 'Precision', 'F1', 'main feature', 'top 5 features'])
+#create a dictionary for the data-frame names
+data_titles = {'Math':data_math, 'Portuguese':data_port,'Merged':data_merged}
+#create a function that allows to get the name of a dataframe
+def get_dataset_name(df):
+    for name, dataset in data_titles.items():
+        if df.equals(dataset):
+            return name
+    return None
 
+#conduct several random forest iterations with different labels and different data
 for data in [data_math, data_port, data_merged]:
     for label in ['G3', 'G3 passed', '5-level grade']:
-        RF_algo(data, 300, label)
-        overview.loc[f'{label}', 'Accuracy'] = accuracy
-        overview.loc[f'{label}', 'Precision'] = precision
-        overview.loc[f'{label}', 'F1'] = f1
-        overview.loc[f'{label}', 'main feature'] = feature_importance_df.Feature.iloc[0]
+        RF_algo(data, 500, label)
+        overview.loc[f'{get_dataset_name(data)} - {label}', 'Accuracy'] = accuracy
+        overview.loc[f'{get_dataset_name(data)} - {label}', 'Precision'] = precision
+        overview.loc[f'{get_dataset_name(data)} - {label}', 'F1'] = f1
+        overview.loc[f'{get_dataset_name(data)} - {label}', 'main feature'] = feature_importance_df.Feature.iloc[0]
+        overview.loc[f'{get_dataset_name(data)} - {label}', 'top 5 features'] = feature_importance_df.Feature.head(5).to_list()
 
+overview
