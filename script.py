@@ -3,8 +3,10 @@ import seaborn as sns
 from matplotlib import pyplot as plt
 import scipy.stats as sts
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.metrics import accuracy_score
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, precision_score, f1_score, roc_auc_score, roc_curve
 
 #import data
 data_math = pd.read_csv('./data/Maths.csv')
@@ -204,7 +206,7 @@ print('Portuguese:')
 for var in num_cols:
     print(f"Shapiro-Wilk for {var}, p-value: {sts.shapiro(data_port[var]).pvalue: .10f}")
 
-# If Shapiro significant => data not normally distributed
+# If Shapiro significant => data not normally distributed -> they are all not normally distributed
 
 #Create a new column that indicates if G3 is passed or not
 data_math['G3 passed'] = data_math['G3'].apply(lambda x: 'Passed' if x >= 10 else 'Failed')
@@ -217,6 +219,52 @@ data_math['5-level grade'] = pd.cut(data_math['G3'], bins=bins, labels=labels, r
 data_port['5-level grade'] = pd.cut(data_port['G3'], bins=bins, labels=labels, right=False)
 
 
+#Combine the datasets
+data_merged = pd.concat([data_math, data_port])
 
+#Define a Random Forest Algorithm
+def RF_algo(data, n_estimators, label):
+    # Select Features and Labels
+    X = data.drop(["G3", "G3 passed", "5-level grade", "G1", "G2", 'age'], axis=1)  # Features
+    y = data[label]  # Label
+    X = pd.get_dummies(X, columns=cat_cols) #one hot encoding
 
+    #Split dataset
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=47)
+
+    #Normalize features
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
+
+    #create Random forest classifier
+    rf_classifier = RandomForestClassifier(n_estimators, random_state=47)
+
+    #train model on training data
+    rf_classifier.fit(X_train, y_train)
+
+    #Predict for testdata
+    y_pred = rf_classifier.predict(X_test)
+
+    #Get performance parameters
+    global accuracy, precision, f1, feature_importance_df
+    accuracy = accuracy_score(y_test, y_pred)
+    precision = precision_score(y_test, y_pred, average='weighted')
+    f1 = f1_score(y_test, y_pred, average='weighted')
+    print(f"Accuracy: {accuracy:.4f}\nPrecision: {precision:.4f}\nF1: {f1:.4f}")
+    #Get most important features
+    feature_importances = rf_classifier.feature_importances_
+    feature_importance_df = pd.DataFrame({"Feature": X.columns, "Importance": feature_importances})
+    feature_importance_df = feature_importance_df.sort_values(by="Importance", ascending=False)
+    print(feature_importance_df.head(7))
+
+overview = pd.DataFrame(columns=['Accuracy', 'Precision', 'F1', 'main feature'])
+
+for data in [data_math, data_port, data_merged]:
+    for label in ['G3', 'G3 passed', '5-level grade']:
+        RF_algo(data, 300, label)
+        overview.loc[f'{label}', 'Accuracy'] = accuracy
+        overview.loc[f'{label}', 'Precision'] = precision
+        overview.loc[f'{label}', 'F1'] = f1
+        overview.loc[f'{label}', 'main feature'] = feature_importance_df.Feature.iloc[0]
 
