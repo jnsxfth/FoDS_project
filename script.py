@@ -246,10 +246,8 @@ def RF_regressor(data, n_estimators, label):
     y_pred = rf_regressor.predict(X_test)
 
     #Get performance parameters
-    global accuracy, precision, f1, feature_importance_df
-    accuracy = accuracy_score(y_test, y_pred)
-    precision = precision_score(y_test, y_pred, average='weighted')
-    f1 = f1_score(y_test, y_pred, average='weighted')
+    !!!!!!!!!!
+
     #Get most important features
     feature_importances = rf_regressor.feature_importances_
     feature_importance_df = pd.DataFrame({"Feature": X.columns, "Importance": feature_importances})
