@@ -1,11 +1,13 @@
 import pandas as pd
 import seaborn as sns
+import numpy as np
 from matplotlib import pyplot as plt
 import scipy.stats as sts
-from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold
+from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold, GridSearchCV
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.metrics import accuracy_score, precision_score, f1_score, roc_auc_score, roc_curve
+from sklearn.metrics import (root_mean_squared_error, mean_absolute_error, r2_score,
+                             precision_score, f1_score, roc_auc_score, roc_curve)
 
 #import data
 data_math = pd.read_csv('./data/Maths.csv')
@@ -222,45 +224,71 @@ data_port['5-level grade'] = pd.cut(data_port['G3'], bins=bins, labels=labels, r
 data_merged = pd.concat([data_math, data_port])
 
 #Define a Random Forest Algorithm
-def RF_regressor(data, n_estimators, label):
+def RF_regressor(data, label):
+    # parameter grid for the hyperparameters
+    parameter_grid = {'n_estimators': [100, 200, 300, 400],
+        'max_features': ['auto', 'sqrt', 'log2'],
+        'max_depth': [10, 20, 30, None],'min_samples_split': [2, 5, 10],
+        'min_samples_leaf': [1, 2, 4], 'bootstrap': [True, False]}
+
     # Select Features and Labels
     X = data.drop(["G3", "G3 passed", "5-level grade", "G1", "G2", 'age'], axis=1)  # Features
     y = data[label]  # Label
     X = pd.get_dummies(X, columns=cat_cols, drop_first = True) #one hot encoding
 
-    #Split dataset
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=47)
+    # Metrics for the results
+    metrics = {'Root Mean Squared error': [], 'Mean absolute error': [], 'R^2': []}
 
-    #Normalize features
-    scaler = StandardScaler()
-    X_train = scaler.fit_transform(X_train)
-    X_test = scaler.transform(X_test)
+    # Cross Validation
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=47)
 
-    #create Random forest regressor
-    rf_regressor = RandomForestRegressor(n_estimators, random_state=47)
+    #Conduct Cross Validation
+    for train_index, test_index in cv.split(X, y):
+        X_train, X_test = X.iloc[train_index], X.iloc[test_index]
+        y_train, y_test = y.iloc[train_index], y.iloc[test_index]
 
-    #train model on training data
-    rf_regressor.fit(X_train, y_train)
+        # Standardize the data
+        scaler = StandardScaler()
+        X_train = scaler.fit_transform(X_train)
+        X_test = scaler.transform(X_test)
 
-    #Predict for testdata
-    y_pred = rf_regressor.predict(X_test)
+        # create Random forest regressor
+        global best_n_estimator, best_max_features, best_max_depth, best_min_samples_split,
+        best_min_samples_leaf, best_bootstrap
+        rf_regressor = RandomForestRegressor(random_state=47)
+        #Conduct GridSearch cross validation
+        Reg_GS = GridSearchCV(rf_regressor, parameter_grid, cv = 5, verbose=2)
+        Reg_GS.fit(X_train, y_train)
+        best_n_estimator = Reg_GS.best_estimator_.get_params()['n_estimators']
+        best_max_features = Reg_GS.best_estimator_.get_params()['max_features']
+        best_max_depth = Reg_GS.best_estimator_.get_params()['max_depth']
+        best_min_samples_split = Reg_GS.best_estimator_.get_params()['min_samples_split']
+        best_min_samples_leaf = Reg_GS.best_estimator_.get_params()['min_samples_leaf']
+        best_bootstrap = Reg_GS.best_estimator_.get_params()['bootstrap']
 
-    #Get performance parameters
-    !!!!!!!!!!
+        #Make predictions
+        y_pred = Reg_GS.best_estimator_.predict(X_test)
 
-    #Get most important features
-    feature_importances = rf_regressor.feature_importances_
-    feature_importance_df = pd.DataFrame({"Feature": X.columns, "Importance": feature_importances})
-    feature_importance_df = feature_importance_df.sort_values(by="Importance", ascending=False)
+        #calculate metrics
+        global rmse, mae, r2
+        rmse = root_mean_squared_error(y_test, y_pred)
+        mae = mean_absolute_error(y_test, y_pred)
+        r2 = r2_score(y_test, y_pred)
 
-    #Cross Validation
-    kf = StratifiedKFold(n_splits=5, shuffle=True, random_state=47)
+        #store metrics
+        metrics['Root Mean Squared error'].append(rmse)
+        metrics['Mean absolute error'].append(mae)
+        metrics['R^2'].append(r2)
 
-    #CV and assessment
-    cv_scores = cross_val_score(rf_regressor, X_train, y, cv=kf, scoring='r2')
-    print(f"Cross-Validation R^2 Scores: {cv_scores}")
-    print(f"Mean CV R^2 Score: {cv_scores.mean()}")
-    print(f"Standard Deviation of CV R^2 Score: {cv_scores.std()}")
+    #Calculate mean and std of the metrics
+    mean_metrics = {key: np.mean(values) for key, values in metrics.items()}
+    std_metrics = {key: np.std(values) for key, values in metrics.items()}
+
+    for key, value in mean_metrics.items():
+        print('{}: {:.3f} ± {:.3f}'.format(key.capitalize(), value, std_metrics[key]))
+
+
+
 def RF_classifier(data, n_estimators, label):
     # Select Features and Labels
     X = data.drop(["G3", "G3 passed", "5-level grade", "G1", "G2", 'age'], axis=1)  # Features
@@ -307,7 +335,8 @@ def RF_classifier(data, n_estimators, label):
 
 
 #Define an overview table for the model results
-overview = pd.DataFrame(columns=['Accuracy', 'Precision', 'F1', 'main feature', 'top 5 features'])
+overview = pd.DataFrame(columns=['Accuracy', 'Precision', 'F1', 'mae', 'rmse', 'r2',
+                                 'main feature', 'top 5 features'])
 #create a dictionary for the data-frame names
 data_titles = {'Math':data_math, 'Portuguese':data_port,'Merged':data_merged}
 #create a function that allows to get the name of a dataframe
@@ -319,10 +348,10 @@ def get_dataset_name(df):
 
 #conduct several random forest iterations with different labels and different data
 for data in [data_math, data_port, data_merged]:
-    RF_regressor(data, 200, 'G3')
-    overview.loc[f'{get_dataset_name(data)} - {label}', 'Accuracy'] = accuracy
-    overview.loc[f'{get_dataset_name(data)} - {label}', 'Precision'] = precision
-    overview.loc[f'{get_dataset_name(data)} - {label}', 'F1'] = f1
+    RF_regressor(data, 'G3')
+    overview.loc[f'{get_dataset_name(data)} - {label}', 'rmse'] = rmse
+    overview.loc[f'{get_dataset_name(data)} - {label}', 'mae'] = mae
+    overview.loc[f'{get_dataset_name(data)} - {label}', 'r2'] = r2
     overview.loc[f'{get_dataset_name(data)} - {label}', 'main feature'] = feature_importance_df.Feature.iloc[0]
     overview.loc[f'{get_dataset_name(data)} - {label}', 'top 5 features'] = feature_importance_df.Feature.head(5).to_list()
     for label in ['G3 passed', '5-level grade']:
