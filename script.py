@@ -359,14 +359,17 @@ def RF_classifier(data, label):
 
         # Make predictions
         y_pred = clf_GS.best_estimator_.predict(X_test)
-        y_prob = clf_GS.best_estimator_.predict_proba(X_test)[:, 1]  # Probabilities for ROC-AUC
+        y_prob = clf_GS.best_estimator_.predict_proba(X_test)  # Probabilities for ROC-AUC
 
         # Calculate metrics
         accuracy = accuracy_score(y_test, y_pred)
         precision = precision_score(y_test, y_pred, average='weighted')
         recall = recall_score(y_test, y_pred, average='weighted')
         f1 = f1_score(y_test, y_pred, average='weighted')
-        roc_auc = roc_auc_score(y_test, y_prob, average='weighted', multi_class='ovr')
+        if len(np.unique(y))>2:
+            roc_auc = roc_auc_score(y_test, y_prob, average='weighted', multi_class='ovr')
+        else:
+            roc_auc = roc_auc_score(y_test, y_prob[:,1], average='weighted', multi_class='ovr')
 
         # Store metrics
         metrics['Accuracy'].append(accuracy)
