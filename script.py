@@ -1,6 +1,7 @@
 import pandas as pd
 import seaborn as sns
 import numpy as np
+import os
 from matplotlib import pyplot as plt
 import scipy.stats as sts
 from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold, GridSearchCV
@@ -89,6 +90,8 @@ data_math["traveltime"] = data_math["traveltime"].cat.rename_categories(
         {1: "1-<15min", 2: "15-30min", 3: "30-60min", 4: ">1h"})
 data_port["traveltime"] = data_port["traveltime"].cat.rename_categories(
         {1: "1-<15min", 2: "15-30min", 3: "30-60min", 4: ">1h"})
+
+#Create folders for graphics
 
 #Plot the distributions of the columns as histograms to get an overview
 titles = {
