@@ -22,6 +22,16 @@ missing_val_port = data_port.isnull().sum().sum()
 dupl_port = data_port[data_port.duplicated()].size
 dupl_math = data_math[data_math.duplicated()].size
 
+#Create a new column that indicates if G3 is passed or not
+data_math['G3 passed'] = data_math['G3'].apply(lambda x: 'Passed' if x >= 10 else 'Failed')
+data_port['G3 passed'] = data_port['G3'].apply(lambda x: 'Passed' if x >= 10 else 'Failed')
+
+#Create a new column that converts the grades into a 5-level scale
+bins = [0, 10, 12, 14, 16, 21]
+labels = ['F', 'D', 'C', 'B', 'A']
+data_math['5-level grade'] = pd.cut(data_math['G3'], bins=bins, labels=labels, right=False)
+data_port['5-level grade'] = pd.cut(data_port['G3'], bins=bins, labels=labels, right=False)
+
 #Get a description of the numerical values of the datasets
 data_math_description = data_math.describe()
 data_port_description = data_port.describe()
@@ -62,8 +72,8 @@ G1-G3 = first/second/final grade (0-20)
 
 #Define categorical columns
 cat_cols = ['sex', 'school', 'address', 'famsize', 'Pstatus', 'Medu', 'Fedu', 'Mjob', 'Fjob', 'reason', 'guardian',
-            'traveltime', 'failures', 'famrel', 'freetime', 'goout', 'Dalc', 'Walc', 'health',
-            'schoolsup', 'famsup', 'paid', 'activities', 'nursery', 'higher', 'internet', 'romantic', 'studytime', ]
+            'traveltime', 'failures', 'famrel', 'freetime', 'goout', 'Dalc', 'Walc', 'health', 'schoolsup', 'famsup',
+            'paid', 'activities', 'nursery', 'higher', 'internet', 'romantic', 'studytime', 'G3 passed', '5-level grade']
 #Define numerical columns
 num_cols = ['age', 'absences', 'G1', 'G2', 'G3']
 
@@ -103,16 +113,6 @@ for var in num_cols:
     print(f"Shapiro-Wilk for {var}, p-value: {sts.shapiro(data_port[var]).pvalue: .10f}")
 
 # If Shapiro significant => data not normally distributed -> they are all not normally distributed
-
-#Create a new column that indicates if G3 is passed or not
-data_math['G3 passed'] = data_math['G3'].apply(lambda x: 'Passed' if x >= 10 else 'Failed')
-data_port['G3 passed'] = data_port['G3'].apply(lambda x: 'Passed' if x >= 10 else 'Failed')
-
-#Create a new column that converts the grades into a 5-level scale
-bins = [0, 10, 12, 14, 16, 21]
-labels = ['F', 'D', 'C', 'B', 'A']
-data_math['5-level grade'] = pd.cut(data_math['G3'], bins=bins, labels=labels, right=False)
-data_port['5-level grade'] = pd.cut(data_port['G3'], bins=bins, labels=labels, right=False)
 
 #Combine the datasets
 data_merged = pd.concat([data_math, data_port])
@@ -208,29 +208,31 @@ xlabels = {
 #Create paths directorys for plots
 for path in [f'{os.getcwd()}/output',
              f'{os.getcwd()}/output/{get_dataset_name(data_math)}',
-             f'{os.getcwd()}/output/{get_dataset_name(data_port)}']:
+             f'{os.getcwd()}/output/{get_dataset_name(data_port)}',
+             f'{os.getcwd()}/output/{get_dataset_name(data_merged)}']:
     if not os.path.exists(path):
         os.makedirs(path)
 
 
 def plot_data(data, column):
     plt.figure(figsize=(10, 8))
-    sns.histplot(data[column], binwidth=1)
-    plt.title(f"Distribution of\n{titles[column]} in {get_dataset_name(data)}")
-    plt.xlabel(xlabels[column])
+    sns.histplot(data[column], binwidth=1, discrete=True, color='#008F91')
+    plt.title(f"Distribution of\n{titles[column]} in {get_dataset_name(data)}", size=12, fontweight='bold')
+    plt.xlabel(xlabels[column], fontweight='bold')
+    plt.ylabel('Count', fontweight='bold')
     plt.savefig(f'./output/{get_dataset_name(data)}/{column}_histplot')
-
+    plt.close()
 
 def boxplot_data(data, column):
     plt.figure(figsize=(10, 8))
-    sns.boxplot(x=data[column])
-    plt.title(f'Distribution of\n {titles[column]} in {get_dataset_name(data)}')
-    plt.xlabel(xlabels[column])
+    sns.boxplot(x=data[column], color='#008F91')
+    plt.title(f'Distribution of\n {titles[column]} in {get_dataset_name(data)}', size=12, fontweight='bold')
+    plt.xlabel(xlabels[column], fontweight='bold')
     plt.savefig(f'./output/{get_dataset_name(data)}/{column}_boxplot')
-
+    plt.close()
 
 # Plot all distributions as histograms
-for data in [data_math, data_port]:
+for data in [data_math, data_port, data_merged]:
     for column in data.columns:
         plot_data(data, column)
 # Plot numerical distributions as boxplots
@@ -239,7 +241,7 @@ for data in [data_math, data_port]:
         boxplot_data(data, column)
 
 
-#Define a Random Forest Algorithm
+#Define Random Forest Regressor Algorithm
 def RF_regressor(data, label):
     # parameter grid for the hyperparameters
     parameter_grid = {'n_estimators': [100, 200],
