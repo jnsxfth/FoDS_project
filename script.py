@@ -73,7 +73,7 @@ G1-G3 = first/second/final grade (0-20)
 #Define categorical columns
 cat_cols = ['sex', 'school', 'address', 'famsize', 'Pstatus', 'Medu', 'Fedu', 'Mjob', 'Fjob', 'reason', 'guardian',
             'traveltime', 'failures', 'famrel', 'freetime', 'goout', 'Dalc', 'Walc', 'health', 'schoolsup', 'famsup',
-            'paid', 'activities', 'nursery', 'higher', 'internet', 'romantic', 'studytime', 'G3 passed', '5-level grade']
+            'paid', 'activities', 'nursery', 'higher', 'internet', 'romantic', 'studytime']
 #Define numerical columns
 num_cols = ['age', 'absences', 'G1', 'G2', 'G3']
 
@@ -411,6 +411,7 @@ model_parameters = pd.DataFrame(
 
 #conduct several random forest iterations with different labels and different data
 for data in [data_math, data_port, data_merged]:
+    print('Regression-model for ', data)
     reg_mean_metrics, reg_std_metrics, reg_best_params, reg_feature_importances_df = RF_regressor(data, 'G3')
     for key in reg_best_params:
         model_parameters.loc[f'{get_dataset_name(data)} Regression - G3', key] = reg_best_params[key]
@@ -424,6 +425,7 @@ for data in [data_math, data_port, data_merged]:
     overview.loc[f'{get_dataset_name(data)} - G3', 'top 5 features'] = reg_feature_importances_df.Feature.head(
         5).to_list()
     for label in ['G3 passed', '5-level grade']:
+        print(f'Classification-model for {data} on {label}')
         clf_mean_metrics, clf_std_metrics, clf_best_params, clf_feature_importances_df = RF_classifier(data, label)
         for key in clf_best_params:
             model_parameters.loc[f'{get_dataset_name(data)} Classification - {label}', key] = clf_best_params[key]
@@ -436,4 +438,17 @@ for data in [data_math, data_port, data_merged]:
         overview.loc[f'{get_dataset_name(data)} - {label}', 'top 5 features'] = clf_feature_importances_df.Feature.head(
             5).to_list()
 
-overview
+plt.figure(figsize=(10, 6))
+sns.regplot(x='absences', y='G3', data=data_port, ci=None, color='#008F91', line_kws={"color": "red"})
+plt.title('G3 score over absences in Portuguese data with regression line', fontweight='bold')
+plt.xlabel('Absences', fontweight='bold')
+plt.ylabel('G3 score', fontweight='bold')
+plt.savefig(f'./output/data_port_absences_over_G3')
+
+plt.figure(figsize=(10, 6))
+sns.regplot(x='absences', y='G3', data=data_math, ci=None, color='#008F91', line_kws={"color": "red"})
+plt.title('G3 score over absences in Math data with regression line', fontweight='bold')
+plt.xlabel('Absences', fontweight='bold')
+plt.ylabel('G3 score', fontweight='bold')
+plt.savefig(f'./output/data_math_absences_over_G3')
+
