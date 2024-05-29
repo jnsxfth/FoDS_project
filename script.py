@@ -422,8 +422,10 @@ features_overview = {}
 #conduct several random forest iterations with different labels and different data
 for data in [data_math, data_port, data_merged]:
     reg_mean_metrics, reg_std_metrics, reg_best_params, reg_feature_importances_df = RF_regressor(data, 'G3')
+    #get the parameters for the different models
     for key in reg_best_params:
         model_parameters.loc[f'{get_dataset_name(data)} Regression - G3', key] = reg_best_params[key]
+    #save the performance parameters in the overview table
     overview.loc[f'{get_dataset_name(data)} - G3', 'RMSE'] = reg_mean_metrics['Root Mean Squared error']
     overview.loc[f'{get_dataset_name(data)} - G3', 'RMSE-std'] = reg_std_metrics['Root Mean Squared error']
     overview.loc[f'{get_dataset_name(data)} - G3', 'MAE'] = reg_mean_metrics['Mean absolute error']
@@ -433,11 +435,14 @@ for data in [data_math, data_port, data_merged]:
     overview.loc[f'{get_dataset_name(data)} - G3', 'main feature'] = reg_feature_importances_df.Feature.iloc[0]
     overview.loc[f'{get_dataset_name(data)} - G3', 'top 5 features'] = reg_feature_importances_df.Feature.head(
         5).to_list()
+    #get the feature importances into a dictionary
     features_overview[f'{get_dataset_name(data)}-G3_features'] = reg_feature_importances_df
+    #conduct a classification model for each dataset and label
     for label in ['G3 passed', '5-level grade']:
         clf_mean_metrics, clf_std_metrics, clf_best_params, clf_feature_importances_df = RF_classifier(data, label)
         for key in clf_best_params:
             model_parameters.loc[f'{get_dataset_name(data)} Classification - {label}', key] = clf_best_params[key]
+        # save the performance parameters in the overview table
         overview.loc[f'{get_dataset_name(data)} - {label}', 'Accuracy'] = clf_mean_metrics['Accuracy']
         overview.loc[f'{get_dataset_name(data)} - {label}', 'Precision'] = clf_mean_metrics['Precision']
         overview.loc[f'{get_dataset_name(data)} - {label}', 'F1'] = clf_mean_metrics['F1 Score']
@@ -446,13 +451,18 @@ for data in [data_math, data_port, data_merged]:
         overview.loc[f'{get_dataset_name(data)} - {label}', 'main feature'] = clf_feature_importances_df.Feature.iloc[0]
         overview.loc[f'{get_dataset_name(data)} - {label}', 'top 5 features'] = clf_feature_importances_df.Feature.head(
             5).to_list()
+        # get the feature importances into a dictionary
         features_overview[f'{get_dataset_name(data)}-{label}_features']=clf_feature_importances_df
         #generate a correlation matrix
         corr_matrix = data[[overview['main feature'], label]].corr()
+        #plot a heatmap of the main features over the label
         plt.figure(figsize=(10,8))
         sns.heatmap(corr_matrix, annot=True, cmap='BuGn', linewidths=0.5, linecolor='black' )
         plt.title(f'Heatmap of {get_dataset_name(data)} over {label}', fontsize=16, fontweight='bold')
         plt.savefig(f'./output/{get_dataset_name(data)}_heatmap_over_{label}')
+        plt.close()
+
+#plot a regression plot over the absences and G3
 for data in [data_math, data_port, data_merged]:
     plt.figure(figsize=(10, 6))
     sns.regplot(x='absences', y='G3', data=data, ci=None, color='#008F91', line_kws={"color": "red"})
