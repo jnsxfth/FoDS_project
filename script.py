@@ -457,15 +457,24 @@ for data in [data_math, data_port, data_merged]:
             5).to_list()
         # get the feature importances into a dictionary
         features_overview[f'{get_dataset_name(data)}-{label}_features']=clf_feature_importances_df
-        #generate a correlation matrix
-        data_encoded = pd.get_dummies(data, columns=cat_cols)
-        corr_matrix = data_encoded[[clf_feature_importances_df.Feature.iloc[2]] + label_coding[label]].corr()
-        #plot a heatmap of the main features over the label
-        plt.figure(figsize=(10,8))
-        sns.heatmap(corr_matrix, annot=True, cmap='BuGn', linewidths=0.5, linecolor='black' )
-        plt.title(f'Heatmap of {get_dataset_name(data)} over {label}', fontsize=16, fontweight='bold')
-        plt.savefig(f'./output/{get_dataset_name(data)}_heatmap_over_{label}')
-        plt.close()
+
+
+#generate a correlation matrix
+
+
+#plot heatmaps of the main features over the labels of the datasets
+
+data_heatmap = pd.get_dummies(data_math[['absences', '5-level grade']])
+corr_matrix = data_heatmap.corr()
+plt.figure(figsize=(10,6))
+sns.heatmap(corr_matrix.iloc[:1,:], annot=True, annot_kws={"size": 10}, cmap= 'Greens', linewidths=0.5, center=0.25,
+            linecolor='black', xticklabels='auto', yticklabels='auto', fmt='.4f' )
+plt.title(f'Heatmap of absences over 5-level grade in math data', fontsize=16, fontweight='bold')
+plt.xticks(rotation=15)
+plt.tight_layout()
+plt.show()
+plt.savefig(f'./output/data_math_heatmap_absences-5-level_grade')
+plt.close()
 
 #plot a regression plot over the absences and G3
 for data in [data_math, data_merged]:
