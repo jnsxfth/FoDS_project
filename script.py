@@ -417,6 +417,8 @@ overview = pd.DataFrame(
 model_parameters = pd.DataFrame(
     columns=['bootstrap', 'max_depth', 'max_features', 'min_samples_leaf', 'min_samples_split', 'n_estimators'])
 
+features_overview = {}
+
 #conduct several random forest iterations with different labels and different data
 for data in [data_math, data_port, data_merged]:
     reg_mean_metrics, reg_std_metrics, reg_best_params, reg_feature_importances_df = RF_regressor(data, 'G3')
@@ -431,6 +433,7 @@ for data in [data_math, data_port, data_merged]:
     overview.loc[f'{get_dataset_name(data)} - G3', 'main feature'] = reg_feature_importances_df.Feature.iloc[0]
     overview.loc[f'{get_dataset_name(data)} - G3', 'top 5 features'] = reg_feature_importances_df.Feature.head(
         5).to_list()
+    features_overview[f'{get_dataset_name(data)}-G3_features'] = reg_feature_importances_df
     for label in ['G3 passed', '5-level grade']:
         clf_mean_metrics, clf_std_metrics, clf_best_params, clf_feature_importances_df = RF_classifier(data, label)
         for key in clf_best_params:
@@ -443,31 +446,19 @@ for data in [data_math, data_port, data_merged]:
         overview.loc[f'{get_dataset_name(data)} - {label}', 'main feature'] = clf_feature_importances_df.Feature.iloc[0]
         overview.loc[f'{get_dataset_name(data)} - {label}', 'top 5 features'] = clf_feature_importances_df.Feature.head(
             5).to_list()
+        features_overview[f'{get_dataset_name(data)}-{label}_features']=clf_feature_importances_df
+        #generate a correlation matrix
+        corr_matrix = data[[overview['main feature'], label]].corr()
+        plt.figure(figsize=(10,8))
+        sns.heatmap(corr_matrix, annot=True, cmap='BuGn', linewidths=0.5, linecolor='black' )
+        plt.title(f'Heatmap of {get_dataset_name(data)} over {label}', fontsize=16, fontweight='bold')
+        plt.savefig(f'./output/{get_dataset_name(data)}_heatmap_over_{label}')
+for data in [data_math, data_port, data_merged]:
+    plt.figure(figsize=(10, 6))
+    sns.regplot(x='absences', y='G3', data=data, ci=None, color='#008F91', line_kws={"color": "red"})
+    plt.title(f'G3 score over absences in {get_dataset_name(data)} with regression line', fontweight='bold')
+    plt.xlabel('Absences', fontweight='bold')
+    plt.ylabel('G3 score', fontweight='bold')
+    plt.savefig(f'./output/{get_dataset_name(data)}_absences_over_G3')
+    plt.close()
 
-plt.figure(figsize=(10, 6))
-sns.regplot(x='absences', y='G3', data=data_port, ci=None, color='#008F91', line_kws={"color": "red"})
-plt.title('G3 score over absences in Portuguese data with regression line', fontweight='bold')
-plt.xlabel('Absences', fontweight='bold')
-plt.ylabel('G3 score', fontweight='bold')
-plt.savefig(f'./output/data_port_absences_over_G3')
-
-plt.figure(figsize=(10, 6))
-sns.regplot(x='absences', y='G3', data=data_math, ci=None, color='#008F91', line_kws={"color": "red"})
-plt.title('G3 score over absences in Math data with regression line', fontweight='bold')
-plt.xlabel('Absences', fontweight='bold')
-plt.ylabel('G3 score', fontweight='bold')
-plt.savefig(f'./output/data_math_absences_over_G3')
-
-plt.figure(figsize=(10, 6))
-sns.regplot(x='absences', y='G3', data=data_merged, ci=None, color='#008F91', line_kws={"color": "red"})
-plt.title('G3 score over absences in merged data with regression line', fontweight='bold')
-plt.xlabel('Absences', fontweight='bold')
-plt.ylabel('G3 score', fontweight='bold')
-plt.savefig(f'./output/data_merged_absences_over_G3')
-
-"""
-To Do:
-
-- calculate importance of features
-- plot graphics
-- """
