@@ -1,3 +1,4 @@
+from Plotting_functions import *
 import pandas as pd
 import seaborn as sns
 import numpy as np
@@ -212,24 +213,6 @@ for path in [f'{os.getcwd()}/output',
              f'{os.getcwd()}/output/{get_dataset_name(data_merged)}']:
     if not os.path.exists(path):
         os.makedirs(path)
-
-
-def plot_data(data, column):
-    plt.figure(figsize=(10, 8))
-    sns.histplot(data[column], binwidth=1, discrete=True, color='#008F91')
-    plt.title(f"Distribution of\n{titles[column]} in {get_dataset_name(data)}", size=12, fontweight='bold')
-    plt.xlabel(xlabels[column], fontweight='bold')
-    plt.ylabel('Count', fontweight='bold')
-    plt.savefig(f'./output/{get_dataset_name(data)}/{column}_histplot')
-    plt.close()
-
-def boxplot_data(data, column):
-    plt.figure(figsize=(10, 8))
-    sns.boxplot(x=data[column], color='#008F91')
-    plt.title(f'Distribution of\n {titles[column]} in {get_dataset_name(data)}', size=12, fontweight='bold')
-    plt.xlabel(xlabels[column], fontweight='bold')
-    plt.savefig(f'./output/{get_dataset_name(data)}/{column}_boxplot')
-    plt.close()
 
 # Plot all distributions as histograms
 for data in [data_math, data_port, data_merged]:
