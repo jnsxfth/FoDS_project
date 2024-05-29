@@ -1,12 +1,14 @@
-from Plotting_functions import *
-from RF_functions import *
-import pandas as pd
-import seaborn as sns
-
 import os
-from matplotlib import pyplot as plt
+import numpy as np
 import scipy.stats as sts
-
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
+from sklearn.model_selection import StratifiedKFold, GridSearchCV
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.metrics import (root_mean_squared_error, mean_absolute_error, r2_score,
+                             precision_score, f1_score, roc_auc_score, accuracy_score, recall_score)
 
 #import data
 data_math = pd.read_csv('./data/Maths.csv')
@@ -70,10 +72,11 @@ G1-G3 = first/second/final grade (0-20)
 
 #Define categorical columns
 cat_cols = ['sex', 'school', 'address', 'famsize', 'Pstatus', 'Medu', 'Fedu', 'Mjob', 'Fjob', 'reason', 'guardian',
-            'traveltime', 'failures', 'famrel', 'freetime', 'goout', 'Dalc', 'Walc', 'health', 'schoolsup', 'famsup',
-            'paid', 'activities', 'nursery', 'higher', 'internet', 'romantic', 'studytime', 'G3 passed', '5-level grade']
+            'traveltime', 'famrel', 'freetime', 'goout', 'Dalc', 'Walc', 'health', 'schoolsup', 'famsup',
+            'paid', 'activities', 'nursery', 'higher', 'internet', 'romantic', 'studytime', 'G3 passed',
+            '5-level grade']
 #Define numerical columns
-num_cols = ['age', 'absences', 'G1', 'G2', 'G3']
+num_cols = ['age', 'absences', 'failures', 'G1', 'G2', 'G3']
 
 #Set categorical columns to datatype category
 data_math[cat_cols] = data_math[cat_cols].astype('category')
@@ -125,6 +128,29 @@ def get_dataset_name(df):
         if df.equals(dataset):
             return name
     return None
+
+
+#Function to plot the variable as histogram
+
+def plot_data(data, column):
+    plt.figure(figsize=(10, 8))
+    sns.histplot(data[column], binwidth=1, discrete=True, color='#008F91')
+    plt.title(f"Distribution of\n{titles[column]} in {get_dataset_name(data)}", size=14, fontweight='bold')
+    plt.xlabel(xlabels[column], fontweight='bold', size=14)
+    plt.ylabel('Count', fontweight='bold', size=14)
+    plt.savefig(f'./output/{get_dataset_name(data)}/{column}_histplot')
+    plt.close()
+
+
+#Function to plot the variable as boxplot
+def boxplot_data(data, column):
+    plt.figure(figsize=(10, 8))
+    sns.boxplot(x=data[column], color='#008F91')
+    plt.title(f'Distribution of\n {titles[column]} in {get_dataset_name(data)}', size=14, fontweight='bold')
+    plt.xlabel(xlabels[column], fontweight='bold', size=14)
+    plt.ylabel('Count', fontweight='bold', size=14)
+    plt.savefig(f'./output/{get_dataset_name(data)}/{column}_boxplot')
+    plt.close()
 
 
 # Plot the distributions of the columns as histograms to get an overview
@@ -199,7 +225,7 @@ xlabels = {
     "G1": "first grade",
     "G2": "second grade",
     "G3": "final grade",
-    "G3 passed": "wether G3 was passed",
+    "G3 passed": "whether G3 was passed",
     "5-level grade": "G3 converted to 5-level grade"
 }
 
@@ -220,6 +246,168 @@ for data in [data_math, data_port]:
     for column in num_cols:
         boxplot_data(data, column)
 
+
+#Define Random Forest Regressor Algorithm
+def RF_regressor(data, label):
+    # parameter grid for the hyperparameters
+    parameter_grid = {'n_estimators': [100, 200],
+                      'max_features': [None, 'sqrt', 'log2'],
+                      'max_depth': [10, 20, None], 'min_samples_split': [2, 5, 10],
+                      'min_samples_leaf': [1, 2, 4], 'bootstrap': [True, False]}
+
+    # Select Features and Labels
+    X = data.drop(["G3", "G3 passed", "5-level grade", "G1", "G2", 'age'], axis=1)  # Features
+    y = data[label]  # Label
+    remaining_cat_cols = [col for col in cat_cols if col in X.columns]
+    X = pd.get_dummies(X, columns=remaining_cat_cols, drop_first=True)  #one hot encoding
+
+    # Metrics for the results
+    metrics = {'Root Mean Squared error': [], 'Mean absolute error': [], 'R^2': []}
+
+    reg_feature_importances = np.zeros(X.shape[1])
+
+    # Cross Validation
+    cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=47)
+    fold = 1
+    #Conduct Cross Validation
+    for train_index, test_index in cv.split(X, y):
+        print('Fold: ', fold)
+        X_train, X_test = X.iloc[train_index], X.iloc[test_index]
+        y_train, y_test = y.iloc[train_index], y.iloc[test_index]
+
+        # Standardize the data
+        scaler = StandardScaler()
+        X_train = scaler.fit_transform(X_train)
+        X_test = scaler.transform(X_test)
+
+        # create Random forest regressor
+        rf_regressor = RandomForestRegressor(random_state=47)
+        #Conduct GridSearch cross validation
+        Reg_GS = GridSearchCV(rf_regressor, parameter_grid, cv=3, verbose=3)
+        Reg_GS.fit(X_train, y_train)
+        best_params = Reg_GS.best_params_
+
+        #Make predictions
+        y_pred = Reg_GS.best_estimator_.predict(X_test)
+
+        #calculate metrics
+        rmse = root_mean_squared_error(y_test, y_pred)
+        mae = mean_absolute_error(y_test, y_pred)
+        r2 = r2_score(y_test, y_pred)
+
+        #store metrics
+        metrics['Root Mean Squared error'].append(rmse)
+        metrics['Mean absolute error'].append(mae)
+        metrics['R^2'].append(r2)
+
+        #Add feature importances
+        reg_feature_importances += Reg_GS.best_estimator_.feature_importances_
+
+        fold += 1
+    #Average feature importances across folds
+    reg_feature_importances = reg_feature_importances / cv.get_n_splits()
+
+    #Create overview dataframe
+    reg_feature_importances_df = pd.DataFrame({'Feature': X.columns, 'Importance': reg_feature_importances})
+    reg_feature_importances_df = reg_feature_importances_df.sort_values('Importance', ascending=False)
+
+    #Calculate mean and std of the metrics
+    mean_metrics = {key: np.mean(values) for key, values in metrics.items()}
+    std_metrics = {key: np.std(values) for key, values in metrics.items()}
+
+    for key, value in mean_metrics.items():
+        print('{}: {:.3f} ± {:.3f}'.format(key.capitalize(), value, std_metrics[key]))
+
+    return mean_metrics, std_metrics, best_params, reg_feature_importances_df
+
+
+def RF_classifier(data, label):
+    # Parameter grid for the hyperparameters
+    parameter_grid = {
+        'n_estimators': [100, 200],
+        'max_features': [None, 'sqrt', 'log2'],
+        'max_depth': [10, 20, None],
+        'min_samples_split': [2, 5, 10],
+        'min_samples_leaf': [1, 2, 4],
+        'bootstrap': [True, False]
+    }
+
+    # Select Features and Labels
+    X = data.drop(["G3", "G3 passed", "5-level grade", "G1", "G2", 'age'], axis=1)  # Features
+    y = data[label]  # Label
+    remaining_cat_cols = [col for col in cat_cols if col in X.columns]
+    X = pd.get_dummies(X, columns=remaining_cat_cols, drop_first=True)  # One-hot encoding
+
+    # Metrics for the results
+    metrics = {'Accuracy': [], 'Precision': [], 'Recall': [], 'F1 Score': [], 'ROC-AUC': []}
+
+    clf_feature_importances = np.zeros(X.shape[1])
+
+    # Cross Validation
+    cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=47)
+    fold = 1
+
+    # Conduct Cross Validation
+    for train_index, test_index in cv.split(X, y):
+        print('Fold:', fold)
+        X_train, X_test = X.iloc[train_index], X.iloc[test_index]
+        y_train, y_test = y.iloc[train_index], y.iloc[test_index]
+
+        # Standardize the data
+        scaler = StandardScaler()
+        X_train = scaler.fit_transform(X_train)
+        X_test = scaler.transform(X_test)
+
+        # Create Random Forest classifier
+        rf_classifier = RandomForestClassifier(random_state=47)
+
+        # Conduct GridSearch cross validation
+
+        clf_GS = GridSearchCV(rf_classifier, parameter_grid, cv=3, verbose=3)
+        clf_GS.fit(X_train, y_train)
+        best_params = clf_GS.best_params_
+
+        # Make predictions
+        y_pred = clf_GS.best_estimator_.predict(X_test)
+        y_prob = clf_GS.best_estimator_.predict_proba(X_test)  # Probabilities for ROC-AUC
+
+        # Calculate metrics
+        accuracy = accuracy_score(y_test, y_pred)
+        precision = precision_score(y_test, y_pred, average='weighted')
+        recall = recall_score(y_test, y_pred, average='weighted')
+        f1 = f1_score(y_test, y_pred, average='weighted')
+        if len(np.unique(y)) > 2:
+            roc_auc = roc_auc_score(y_test, y_prob, average='weighted', multi_class='ovr')
+        else:
+            roc_auc = roc_auc_score(y_test, y_prob[:, 1], average='weighted', multi_class='ovr')
+
+        # Store metrics
+        metrics['Accuracy'].append(accuracy)
+        metrics['Precision'].append(precision)
+        metrics['Recall'].append(recall)
+        metrics['F1 Score'].append(f1)
+        metrics['ROC-AUC'].append(roc_auc)
+
+        # Add feature importances
+        clf_feature_importances += clf_GS.best_estimator_.feature_importances_
+
+        fold += 1
+
+    # Average feature importances across folds
+    clf_feature_importances /= cv.get_n_splits()
+
+    # Create overview dataframe
+    clf_feature_importances_df = pd.DataFrame({'Feature': X.columns, 'Importance': clf_feature_importances})
+    clf_feature_importances_df = clf_feature_importances_df.sort_values('Importance', ascending=False)
+
+    # Calculate mean and std of the metrics
+    mean_metrics = {key: np.mean(values) for key, values in metrics.items()}
+    std_metrics = {key: np.std(values) for key, values in metrics.items()}
+
+    for key, value in mean_metrics.items():
+        print('{}: {:.3f} ± {:.3f}'.format(key, value, std_metrics[key]))
+
+    return mean_metrics, std_metrics, best_params, clf_feature_importances_df
 
 
 #Define an overview table for the model results
