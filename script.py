@@ -417,6 +417,10 @@ overview = pd.DataFrame(
 model_parameters = pd.DataFrame(
     columns=['bootstrap', 'max_depth', 'max_features', 'min_samples_leaf', 'min_samples_split', 'n_estimators'])
 
+label_coding = {'G3 passed':['G3 passed_Passed', 'G3 passed_Failed'],
+                '5-level grade':['5-level grade_F',
+                '5-level grade_D','5-level grade_C','5-level grade_B','5-level grade_A']}
+
 features_overview = {}
 
 #conduct several random forest iterations with different labels and different data
@@ -454,7 +458,8 @@ for data in [data_math, data_port, data_merged]:
         # get the feature importances into a dictionary
         features_overview[f'{get_dataset_name(data)}-{label}_features']=clf_feature_importances_df
         #generate a correlation matrix
-        corr_matrix = data[[overview['main feature'], label]].corr()
+        data_encoded = pd.get_dummies(data, columns=cat_cols)
+        corr_matrix = data_encoded[[clf_feature_importances_df.Feature.iloc[2]] + label_coding[label]].corr()
         #plot a heatmap of the main features over the label
         plt.figure(figsize=(10,8))
         sns.heatmap(corr_matrix, annot=True, cmap='BuGn', linewidths=0.5, linecolor='black' )
@@ -463,8 +468,8 @@ for data in [data_math, data_port, data_merged]:
         plt.close()
 
 #plot a regression plot over the absences and G3
-for data in [data_math, data_port, data_merged]:
-    plt.figure(figsize=(10, 6))
+for data in [data_math, data_merged]:
+    plt.figure(figsize=(10, 5))
     sns.regplot(x='absences', y='G3', data=data, ci=None, color='#008F91', line_kws={"color": "red"})
     plt.title(f'G3 score over absences in {get_dataset_name(data)} with regression line', fontweight='bold')
     plt.xlabel('Absences', fontweight='bold')
@@ -472,5 +477,12 @@ for data in [data_math, data_port, data_merged]:
     plt.savefig(f'./output/{get_dataset_name(data)}_absences_over_G3')
     plt.close()
 
+plt.figure(figsize=(10, 5))
+sns.scatterplot(x='failures', y='G3', data=data_port, color='#008F91')
+plt.title(f'G3 score over failures in portuguese data', fontweight='bold')
+plt.xlabel('failures', fontweight='bold')
+plt.ylabel('G3 score', fontweight='bold')
+plt.savefig(f'./output/Portuguese data_failures_over_G3')
+plt.close()
 """Finale Version"""
 
