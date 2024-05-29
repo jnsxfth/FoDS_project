@@ -464,3 +464,10 @@ plt.title('G3 score over absences in merged data with regression line', fontweig
 plt.xlabel('Absences', fontweight='bold')
 plt.ylabel('G3 score', fontweight='bold')
 plt.savefig(f'./output/data_merged_absences_over_G3')
+
+"""
+To Do:
+
+- calculate importance of features
+- plot graphics
+- """
