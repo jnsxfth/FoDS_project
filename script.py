@@ -417,11 +417,19 @@ overview = pd.DataFrame(
 model_parameters = pd.DataFrame(
     columns=['bootstrap', 'max_depth', 'max_features', 'min_samples_leaf', 'min_samples_split', 'n_estimators'])
 
+label_coding = {'G3 passed':['G3 passed_Passed', 'G3 passed_Failed'],
+                '5-level grade':['5-level grade_F',
+                '5-level grade_D','5-level grade_C','5-level grade_B','5-level grade_A']}
+
+features_overview = {}
+
 #conduct several random forest iterations with different labels and different data
 for data in [data_math, data_port, data_merged]:
     reg_mean_metrics, reg_std_metrics, reg_best_params, reg_feature_importances_df = RF_regressor(data, 'G3')
+    #get the parameters for the different models
     for key in reg_best_params:
         model_parameters.loc[f'{get_dataset_name(data)} Regression - G3', key] = reg_best_params[key]
+    #save the performance parameters in the overview table
     overview.loc[f'{get_dataset_name(data)} - G3', 'RMSE'] = reg_mean_metrics['Root Mean Squared error']
     overview.loc[f'{get_dataset_name(data)} - G3', 'RMSE-std'] = reg_std_metrics['Root Mean Squared error']
     overview.loc[f'{get_dataset_name(data)} - G3', 'MAE'] = reg_mean_metrics['Mean absolute error']
@@ -431,10 +439,14 @@ for data in [data_math, data_port, data_merged]:
     overview.loc[f'{get_dataset_name(data)} - G3', 'main feature'] = reg_feature_importances_df.Feature.iloc[0]
     overview.loc[f'{get_dataset_name(data)} - G3', 'top 5 features'] = reg_feature_importances_df.Feature.head(
         5).to_list()
+    #get the feature importances into a dictionary
+    features_overview[f'{get_dataset_name(data)}-G3_features'] = reg_feature_importances_df
+    #conduct a classification model for each dataset and label
     for label in ['G3 passed', '5-level grade']:
         clf_mean_metrics, clf_std_metrics, clf_best_params, clf_feature_importances_df = RF_classifier(data, label)
         for key in clf_best_params:
             model_parameters.loc[f'{get_dataset_name(data)} Classification - {label}', key] = clf_best_params[key]
+        # save the performance parameters in the overview table
         overview.loc[f'{get_dataset_name(data)} - {label}', 'Accuracy'] = clf_mean_metrics['Accuracy']
         overview.loc[f'{get_dataset_name(data)} - {label}', 'Precision'] = clf_mean_metrics['Precision']
         overview.loc[f'{get_dataset_name(data)} - {label}', 'F1'] = clf_mean_metrics['F1 Score']
@@ -443,28 +455,43 @@ for data in [data_math, data_port, data_merged]:
         overview.loc[f'{get_dataset_name(data)} - {label}', 'main feature'] = clf_feature_importances_df.Feature.iloc[0]
         overview.loc[f'{get_dataset_name(data)} - {label}', 'top 5 features'] = clf_feature_importances_df.Feature.head(
             5).to_list()
+        # get the feature importances into a dictionary
+        features_overview[f'{get_dataset_name(data)}-{label}_features']=clf_feature_importances_df
 
-plt.figure(figsize=(10, 6))
-sns.regplot(x='absences', y='G3', data=data_port, ci=None, color='#008F91', line_kws={"color": "red"})
-plt.title('G3 score over absences in Portuguese data with regression line', fontweight='bold')
-plt.xlabel('Absences', fontweight='bold')
+
+#generate a correlation matrix
+
+
+#plot heatmaps of the main features over the labels of the datasets
+
+data_heatmap = pd.get_dummies(data_math[['absences', '5-level grade']])
+corr_matrix = data_heatmap.corr()
+plt.figure(figsize=(10,6))
+sns.heatmap(corr_matrix.iloc[:1,:], annot=True, annot_kws={"size": 10}, cmap= 'Greens', linewidths=0.5, center=0.25,
+            linecolor='black', xticklabels='auto', yticklabels='auto', fmt='.4f' )
+plt.title(f'Heatmap of absences over 5-level grade in math data', fontsize=16, fontweight='bold')
+plt.xticks(rotation=15)
+plt.tight_layout()
+plt.show()
+plt.savefig(f'./output/data_math_heatmap_absences-5-level_grade')
+plt.close()
+
+#plot a regression plot over the absences and G3
+for data in [data_math, data_merged]:
+    plt.figure(figsize=(10, 5))
+    sns.regplot(x='absences', y='G3', data=data, ci=None, color='#008F91', line_kws={"color": "red"})
+    plt.title(f'G3 score over absences in {get_dataset_name(data)} with regression line', fontweight='bold')
+    plt.xlabel('Absences', fontweight='bold')
+    plt.ylabel('G3 score', fontweight='bold')
+    plt.savefig(f'./output/{get_dataset_name(data)}_absences_over_G3')
+    plt.close()
+
+plt.figure(figsize=(10, 5))
+sns.scatterplot(x='failures', y='G3', data=data_port, color='#008F91')
+plt.title(f'G3 score over failures in portuguese data', fontweight='bold')
+plt.xlabel('failures', fontweight='bold')
 plt.ylabel('G3 score', fontweight='bold')
-plt.savefig(f'./output/data_port_absences_over_G3')
+plt.savefig(f'./output/Portuguese data_failures_over_G3')
+plt.close()
+"""Finale Version"""
 
-plt.figure(figsize=(10, 6))
-sns.regplot(x='absences', y='G3', data=data_math, ci=None, color='#008F91', line_kws={"color": "red"})
-plt.title('G3 score over absences in Math data with regression line', fontweight='bold')
-plt.xlabel('Absences', fontweight='bold')
-plt.ylabel('G3 score', fontweight='bold')
-plt.savefig(f'./output/data_math_absences_over_G3')
-
-plt.figure(figsize=(10, 6))
-sns.regplot(x='absences', y='G3', data=data_merged, ci=None, color='#008F91', line_kws={"color": "red"})
-plt.title('G3 score over absences in merged data with regression line', fontweight='bold')
-plt.xlabel('Absences', fontweight='bold')
-plt.ylabel('G3 score', fontweight='bold')
-plt.savefig(f'./output/data_merged_absences_over_G3')
-
-"""
-To Do:
-Test Commit"""
