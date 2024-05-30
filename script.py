@@ -493,5 +493,5 @@ plt.xlabel('failures', fontweight='bold')
 plt.ylabel('G3 score', fontweight='bold')
 plt.savefig(f'./output/Portuguese data_failures_over_G3')
 plt.close()
-"""Finale Version"""
+"""Finale Version 30.05."""
 
