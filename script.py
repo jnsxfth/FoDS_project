@@ -117,8 +117,8 @@ def plot_data(data, column):
     plt.figure(figsize=(10, 8))
     sns.histplot(data[column], binwidth=1, discrete=True, color='#008F91')
     plt.title(f"Distribution of\n{titles[column]} in {get_dataset_name(data)}", size=14, fontweight='bold')
-    plt.xlabel(xlabels[column], fontweight='bold', size=14)
-    plt.ylabel('Count', fontweight='bold', size=14)
+    plt.xlabel(xlabels[column], fontweight='bold', size=16)
+    plt.ylabel('Count', fontweight='bold', size=16)
     plt.savefig(f'./output/{get_dataset_name(data)}/{column}_histplot')
     plt.close()
 
@@ -128,8 +128,8 @@ def boxplot_data(data, column):
     plt.figure(figsize=(10, 8))
     sns.boxplot(x=data[column], color='#008F91')
     plt.title(f'Distribution of\n {titles[column]} in {get_dataset_name(data)}', size=14, fontweight='bold')
-    plt.xlabel(xlabels[column], fontweight='bold', size=14)
-    plt.ylabel('Count', fontweight='bold', size=14)
+    plt.xlabel(xlabels[column], fontweight='bold', size=16)
+    plt.ylabel('Count', fontweight='bold', size=16)
     plt.savefig(f'./output/{get_dataset_name(data)}/{column}_boxplot')
     plt.close()
 
@@ -459,22 +459,67 @@ plt.show()
 plt.savefig(f'./output/data_math_heatmap_absences-5-level_grade')
 plt.close()
 
-#plot a regression plot over the absences and G3
-for data in [data_math, data_merged]:
-    plt.figure(figsize=(10, 5))
-    sns.regplot(x='absences', y='G3', data=data, ci=None, color='#008F91', line_kws={"color": "red"})
-    plt.title(f'G3 score over absences in {get_dataset_name(data)} with regression line', fontweight='bold')
-    plt.xlabel('Absences', fontweight='bold')
-    plt.ylabel('G3 score', fontweight='bold')
-    plt.savefig(f'./output/{get_dataset_name(data)}_absences_over_G3')
-    plt.close()
+#plot a regression plot over the absences and G3 in data_math
+plt.figure(figsize=(8, 5))
+sns.regplot(x='absences', y='G3', data=data_math, ci=None, color='#008F91', line_kws={"color": "red"})
+plt.title(f'G3 score over absences in Math data with regression line', fontweight='bold', size=14)
+plt.xlabel('Absences', fontweight='bold', size=12)
+plt.ylabel('G3 score', fontweight='bold', size=12)
+plt.tight_layout()
+plt.savefig(f'./output/Math data_absences_over_G3')
+plt.close()
 
-plt.figure(figsize=(10, 5))
-sns.scatterplot(x='failures', y='G3', data=data_port, color='#008F91')
-plt.title(f'G3 score over failures in portuguese data', fontweight='bold')
-plt.xlabel('failures', fontweight='bold')
-plt.ylabel('G3 score', fontweight='bold')
+# Plot a boxplot with regression line over the failures and G3 in data_port
+plt.figure(figsize=(8, 5))
+sns.boxplot(x='failures', y='G3', data=data_port, color='#008F91', )
+sns.regplot(x='failures', y='G3', data=data_port, scatter=False, ci=None, color='red', line_kws={'label':'Regression Line'})
+plt.title(f'G3 score over failures in Portuguese data with regression line', fontweight='bold', size=14)
+plt.xlabel('Failures', fontweight='bold', size=12)
+plt.ylabel('G3 score', fontweight='bold', size=12)
+plt.tight_layout()
 plt.savefig(f'./output/Portuguese data_failures_over_G3')
 plt.close()
-"""Finale Version"""
+
+# Plot a boxplot with regression line over the failures and G3 in data_merged
+plt.figure(figsize=(8, 5))
+sns.boxplot(x='failures', y='G3', data=data_merged, color='#008F91', )
+sns.regplot(x='failures', y='G3', data=data_merged, scatter=False, ci=None, color='red', line_kws={'label':'Regression Line'})
+plt.title(f'G3 score over failures in Merged data with regression line', fontweight='bold', size=14)
+plt.xlabel('Failures', fontweight='bold', size=12)
+plt.ylabel('G3 score', fontweight='bold', size=12)
+plt.tight_layout()
+plt.savefig(f'./output/Merged data_failures_over_G3')
+plt.close()
+
+#Plot a boxplot over the failures and G3 passed in data_port
+plt.figure(figsize=(8, 5))
+sns.violinplot(x='failures', y='G3 passed', data=data_port, color='#008F91', cut=0, density_norm='area')
+plt.title(f'G3 passing over failures in Portuguese data', fontweight='bold', size=14)
+plt.xlabel('Failures', fontweight='bold', size=12)
+plt.ylabel('G3 passed', fontweight='bold', size=12)
+plt.tight_layout()
+plt.savefig(f'./output/Portuguese data_failures_over_G3 passed')
+plt.close()
+
+#Plot a boxplot over the failures and G3 passed in data_merged
+plt.figure(figsize=(8, 5))
+sns.violinplot(x='failures', y='G3 passed', data=data_merged, color='#008F91', cut=0, density_norm='area')
+plt.title(f'G3 passing over failures in Merged data', fontweight='bold', size=14)
+plt.xlabel('Failures', fontweight='bold', size=12)
+plt.ylabel('G3 passed', fontweight='bold', size=12)
+plt.tight_layout()
+plt.savefig(f'./output/Merged data_failures_over_G3 passed')
+plt.close()
+
+#Plot a boxplot over the absences and the 5-level grade in data_math
+plt.figure(figsize=(8, 5))
+sns.boxplot(y='absences', x='5-level grade', data=data_math, color='#008F91', )
+plt.title(f'5-level grade over absences in Math data', fontweight='bold', size=14)
+plt.ylabel('Absences', fontweight='bold', size=12)
+plt.xlabel('5-level grade', fontweight='bold', size=12)
+plt.tight_layout()
+plt.savefig(f'./output/Math data_failures_over_5-level grade')
+plt.close()
+
+"""Finale Version 30.05. 12:00"""
 
