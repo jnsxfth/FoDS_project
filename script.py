@@ -9,6 +9,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.metrics import (root_mean_squared_error, mean_absolute_error, r2_score,
                              precision_score, f1_score, roc_auc_score, accuracy_score, recall_score)
+from imblearn.over_sampling import SMOTE
 
 #import data
 data_math = pd.read_csv('./data/Maths.csv')
@@ -83,28 +84,6 @@ data_math[cat_cols] = data_math[cat_cols].astype('category')
 data_port[cat_cols] = data_port[cat_cols].astype('category')
 
 
-#rename the education categories
-def rename_education(data, parent):
-    data[parent] = data[parent].cat.rename_categories(
-        {0: "none", 1: "primary education", 2: "5th to 9th", 3: "secondary education", 4: "higher education"})
-
-
-rename_education(data_math, 'Fedu')
-rename_education(data_port, 'Fedu')
-rename_education(data_math, 'Medu')
-rename_education(data_port, 'Medu')
-
-#rename the studytime categories
-data_math["studytime"] = data_math["studytime"].cat.rename_categories(
-    {1: "<=2h", 2: "2-5h", 3: "5-10h", 4: ">=10h"})
-data_port["studytime"] = data_port["studytime"].cat.rename_categories(
-    {1: "<=2h", 2: "2-5h", 3: "5-10h", 4: ">=10h"})
-#rename the traveltime categories
-data_math["traveltime"] = data_math["traveltime"].cat.rename_categories(
-    {1: "1-<15min", 2: "15-30min", 3: "30-60min", 4: ">1h"})
-data_port["traveltime"] = data_port["traveltime"].cat.rename_categories(
-    {1: "1-<15min", 2: "15-30min", 3: "30-60min", 4: ">1h"})
-
 #Check if continuous variables are normally distributed
 print('Maths:')
 for var in num_cols:
@@ -116,7 +95,9 @@ for var in num_cols:
 # If Shapiro significant => data not normally distributed -> they are all not normally distributed
 
 #Combine the datasets
-data_merged = pd.concat([data_math, data_port])
+data_merged_raw = pd.concat([data_math, data_port])
+data_merged = data_merged_raw.drop_duplicates(subset=data_math.columns.drop(['G1','G2','G3','G3 passed','5-level grade']).tolist())
+
 
 #create a dictionary for the data-frame names
 data_titles = {'Math data': data_math, 'Portuguese data': data_port, 'Merged data': data_merged}
@@ -252,8 +233,8 @@ def RF_regressor(data, label):
     # parameter grid for the hyperparameters
     parameter_grid = {'n_estimators': [100, 200],
                       'max_features': [None, 'sqrt', 'log2'],
-                      'max_depth': [10, 20, None], 'min_samples_split': [2, 5, 10],
-                      'min_samples_leaf': [1, 2, 4], 'bootstrap': [True, False]}
+                      'max_depth': [10, 20], 'min_samples_split': [2, 5],
+                      'min_samples_leaf': [1, 2, 4]}
 
     # Select Features and Labels
     X = data.drop(["G3", "G3 passed", "5-level grade", "G1", "G2", 'age'], axis=1)  # Features
@@ -326,10 +307,9 @@ def RF_classifier(data, label):
     parameter_grid = {
         'n_estimators': [100, 200],
         'max_features': [None, 'sqrt', 'log2'],
-        'max_depth': [10, 20, None],
-        'min_samples_split': [2, 5, 10],
-        'min_samples_leaf': [1, 2, 4],
-        'bootstrap': [True, False]
+        'max_depth': [10, 20],
+        'min_samples_split': [2, 5],
+        'min_samples_leaf': [1, 2, 4]
     }
 
     # Select Features and Labels
@@ -353,6 +333,10 @@ def RF_classifier(data, label):
         X_train, X_test = X.iloc[train_index], X.iloc[test_index]
         y_train, y_test = y.iloc[train_index], y.iloc[test_index]
 
+        # Apply SMOTE to balance the data
+        smote = SMOTE(random_state=47)
+        X_train, y_train = smote.fit_resample(X_train, y_train)
+
         # Standardize the data
         scaler = StandardScaler()
         X_train = scaler.fit_transform(X_train)
@@ -362,7 +346,6 @@ def RF_classifier(data, label):
         rf_classifier = RandomForestClassifier(random_state=47)
 
         # Conduct GridSearch cross validation
-
         clf_GS = GridSearchCV(rf_classifier, parameter_grid, cv=3, verbose=3)
         clf_GS.fit(X_train, y_train)
         best_params = clf_GS.best_params_
@@ -415,7 +398,7 @@ overview = pd.DataFrame(
     columns=['Accuracy', 'Precision', 'Recall', 'F1', 'ROC-AUC', 'MAE', 'MAE-std', 'RMSE', 'RMSE-std', 'R2',
              'R2-std', 'main feature', 'top 5 features'])
 model_parameters = pd.DataFrame(
-    columns=['bootstrap', 'max_depth', 'max_features', 'min_samples_leaf', 'min_samples_split', 'n_estimators'])
+    columns=['max_depth', 'max_features', 'min_samples_leaf', 'min_samples_split', 'n_estimators'])
 
 label_coding = {'G3 passed':['G3 passed_Passed', 'G3 passed_Failed'],
                 '5-level grade':['5-level grade_F',
