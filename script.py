@@ -1,6 +1,5 @@
 import os
 import numpy as np
-import scipy.stats as sts
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
@@ -83,21 +82,20 @@ num_cols = ['age', 'absences', 'failures', 'G1', 'G2', 'G3']
 data_math[cat_cols] = data_math[cat_cols].astype('category')
 data_port[cat_cols] = data_port[cat_cols].astype('category')
 
-
-#Check if continuous variables are normally distributed
+"""#Check if continuous variables are normally distributed
 print('Maths:')
 for var in num_cols:
     print(f"Shapiro-Wilk for {var}, p-value: {sts.shapiro(data_math[var]).pvalue: .10f}")
 print('Portuguese:')
 for var in num_cols:
-    print(f"Shapiro-Wilk for {var}, p-value: {sts.shapiro(data_port[var]).pvalue: .10f}")
+    print(f"Shapiro-Wilk for {var}, p-value: {sts.shapiro(data_port[var]).pvalue: .10f}")"""
 
 # If Shapiro significant => data not normally distributed -> they are all not normally distributed
 
 #Combine the datasets
 data_merged_raw = pd.concat([data_math, data_port])
-data_merged = data_merged_raw.drop_duplicates(subset=data_math.columns.drop(['G1','G2','G3','G3 passed','5-level grade']).tolist())
-
+data_merged = data_merged_raw.drop_duplicates(
+    subset=data_math.columns.drop(['G1', 'G2', 'G3', 'G3 passed', '5-level grade']).tolist())
 
 #create a dictionary for the data-frame names
 data_titles = {'Math data': data_math, 'Portuguese data': data_port, 'Merged data': data_merged}
@@ -248,7 +246,7 @@ def RF_regressor(data, label):
     reg_feature_importances = np.zeros(X.shape[1])
 
     # Cross Validation
-    cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=47)
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=47)
     fold = 1
     #Conduct Cross Validation
     for train_index, test_index in cv.split(X, y):
@@ -264,7 +262,7 @@ def RF_regressor(data, label):
         # create Random forest regressor
         rf_regressor = RandomForestRegressor(random_state=47)
         #Conduct GridSearch cross validation
-        Reg_GS = GridSearchCV(rf_regressor, parameter_grid, cv=3, verbose=3)
+        Reg_GS = GridSearchCV(rf_regressor, parameter_grid, cv=5, verbose=3)
         Reg_GS.fit(X_train, y_train)
         best_params = Reg_GS.best_params_
 
@@ -324,7 +322,7 @@ def RF_classifier(data, label):
     clf_feature_importances = np.zeros(X.shape[1])
 
     # Cross Validation
-    cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=47)
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=47)
     fold = 1
 
     # Conduct Cross Validation
@@ -346,7 +344,7 @@ def RF_classifier(data, label):
         rf_classifier = RandomForestClassifier(random_state=47)
 
         # Conduct GridSearch cross validation
-        clf_GS = GridSearchCV(rf_classifier, parameter_grid, cv=3, verbose=3)
+        clf_GS = GridSearchCV(rf_classifier, parameter_grid, cv=5, verbose=3)
         clf_GS.fit(X_train, y_train)
         best_params = clf_GS.best_params_
 
@@ -400,9 +398,9 @@ overview = pd.DataFrame(
 model_parameters = pd.DataFrame(
     columns=['max_depth', 'max_features', 'min_samples_leaf', 'min_samples_split', 'n_estimators'])
 
-label_coding = {'G3 passed':['G3 passed_Passed', 'G3 passed_Failed'],
-                '5-level grade':['5-level grade_F',
-                '5-level grade_D','5-level grade_C','5-level grade_B','5-level grade_A']}
+label_coding = {'G3 passed': ['G3 passed_Passed', 'G3 passed_Failed'],
+                '5-level grade': ['5-level grade_F',
+                                  '5-level grade_D', '5-level grade_C', '5-level grade_B', '5-level grade_A']}
 
 features_overview = {}
 
@@ -439,40 +437,31 @@ for data in [data_math, data_port, data_merged]:
         overview.loc[f'{get_dataset_name(data)} - {label}', 'top 5 features'] = clf_feature_importances_df.Feature.head(
             5).to_list()
         # get the feature importances into a dictionary
-        features_overview[f'{get_dataset_name(data)}-{label}_features']=clf_feature_importances_df
+        features_overview[f'{get_dataset_name(data)}-{label}_features'] = clf_feature_importances_df
 
-
-#generate a correlation matrix
-
-
-#plot heatmaps of the main features over the labels of the datasets
-
-data_heatmap = pd.get_dummies(data_math[['absences', '5-level grade']])
-corr_matrix = data_heatmap.corr()
-plt.figure(figsize=(10,6))
-sns.heatmap(corr_matrix.iloc[:1,:], annot=True, annot_kws={"size": 10}, cmap= 'Greens', linewidths=0.5, center=0.25,
-            linecolor='black', xticklabels='auto', yticklabels='auto', fmt='.4f' )
-plt.title(f'Heatmap of absences over 5-level grade in math data', fontsize=16, fontweight='bold')
-plt.xticks(rotation=15)
+#Plot the R2 values of all RF-Regressions
+plt.figure(figsize=(8,5))
+sns.barplot(data=overview.dropna(subset='R2'), x=overview.dropna(subset='R2').index, y='R2',
+            yerr=overview.dropna(subset='R2')['R2-std'] ,color='#008F91')
+plt.title(r'$R^2$ values of the three Random Forest Regressors',fontweight='bold', size=14)
+plt.ylabel(r'$R^2$ value',fontweight='bold', size=12)
 plt.tight_layout()
-plt.show()
-plt.savefig(f'./output/data_math_heatmap_absences-5-level_grade')
-plt.close()
+plt.savefig(f'./output/R^2 values RF_regressor')
 
-#plot a regression plot over the absences and G3 in data_math
-plt.figure(figsize=(8, 5))
-sns.regplot(x='absences', y='G3', data=data_math, ci=None, color='#008F91', line_kws={"color": "red"})
-plt.title(f'G3 score over absences in Math data with regression line', fontweight='bold', size=14)
-plt.xlabel('Absences', fontweight='bold', size=12)
-plt.ylabel('G3 score', fontweight='bold', size=12)
+#Plot the Accuracy values of all RF-Regressions
+plt.figure(figsize=(8,5))
+sns.barplot(data=overview.dropna(subset='Accuracy'), x=overview.dropna(subset='Accuracy').index, y='Accuracy', color='#008F91')
+plt.title('Accuracy values of the three Random Forest Classifiers',fontweight='bold', size=14)
+plt.ylabel('Accuracy value',fontweight='bold', size=12)
+plt.xticks(rotation=66)
 plt.tight_layout()
-plt.savefig(f'./output/Math data_absences_over_G3')
-plt.close()
+plt.savefig(f'./output/Accuracy values RF_classifier')
 
 # Plot a boxplot with regression line over the failures and G3 in data_port
 plt.figure(figsize=(8, 5))
 sns.boxplot(x='failures', y='G3', data=data_port, color='#008F91', )
-sns.regplot(x='failures', y='G3', data=data_port, scatter=False, ci=None, color='red', line_kws={'label':'Regression Line'})
+sns.regplot(x='failures', y='G3', data=data_port, scatter=False, ci=None, color='red',
+            line_kws={'label': 'Regression Line'})
 plt.title(f'G3 score over failures in Portuguese data with regression line', fontweight='bold', size=14)
 plt.xlabel('Failures', fontweight='bold', size=12)
 plt.ylabel('G3 score', fontweight='bold', size=12)
@@ -483,7 +472,8 @@ plt.close()
 # Plot a boxplot with regression line over the failures and G3 in data_merged
 plt.figure(figsize=(8, 5))
 sns.boxplot(x='failures', y='G3', data=data_merged, color='#008F91', )
-sns.regplot(x='failures', y='G3', data=data_merged, scatter=False, ci=None, color='red', line_kws={'label':'Regression Line'})
+sns.regplot(x='failures', y='G3', data=data_merged, scatter=False, ci=None, color='red',
+            line_kws={'label': 'Regression Line'})
 plt.title(f'G3 score over failures in Merged data with regression line', fontweight='bold', size=14)
 plt.xlabel('Failures', fontweight='bold', size=12)
 plt.ylabel('G3 score', fontweight='bold', size=12)
@@ -501,7 +491,7 @@ plt.tight_layout()
 plt.savefig(f'./output/Portuguese data_failures_over_G3 passed')
 plt.close()
 
-#Plot a boxplot over the failures and G3 passed in data_merged
+#Plot a violinplot over the failures and G3 passed in data_merged
 plt.figure(figsize=(8, 5))
 sns.violinplot(x='failures', y='G3 passed', data=data_merged, color='#008F91', cut=0, density_norm='area')
 plt.title(f'G3 passing over failures in Merged data', fontweight='bold', size=14)
@@ -521,5 +511,4 @@ plt.tight_layout()
 plt.savefig(f'./output/Math data_failures_over_5-level grade')
 plt.close()
 
-"""Finale Version 30.05. 12:00"""
-
+"""Finale Version 11.06. 5x5"""
