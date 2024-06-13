@@ -10,75 +10,41 @@ from sklearn.metrics import (root_mean_squared_error, mean_absolute_error, r2_sc
                              precision_score, f1_score, roc_auc_score, accuracy_score, recall_score)
 from imblearn.over_sampling import SMOTE
 
-#import data
+# import data
 data_math = pd.read_csv('./data/Maths.csv')
 data_port = pd.read_csv('./data/Portuguese.csv')
 
-#Check for missing values
+# Check for missing values
 missing_val_math = data_math.isnull().sum().sum()
 missing_val_port = data_port.isnull().sum().sum()
 
-#Check for duplicated values
+# Check for duplicated values
 dupl_port = data_port[data_port.duplicated()].size
 dupl_math = data_math[data_math.duplicated()].size
 
-#Create a new column that indicates if G3 is passed or not
+# Create a new column that indicates if G3 is passed or not
 data_math['G3 passed'] = data_math['G3'].apply(lambda x: 'Passed' if x >= 10 else 'Failed')
 data_port['G3 passed'] = data_port['G3'].apply(lambda x: 'Passed' if x >= 10 else 'Failed')
 
-#Create a new column that converts the grades into a 5-level scale
+# Create a new column that converts the grades into a 5-level scale
 bins = [0, 10, 12, 14, 16, 21]
 labels = ['F', 'D', 'C', 'B', 'A']
 data_math['5-level grade'] = pd.cut(data_math['G3'], bins=bins, labels=labels, right=False)
 data_port['5-level grade'] = pd.cut(data_port['G3'], bins=bins, labels=labels, right=False)
 
-#Get a description of the numerical values of the datasets
+# Get a description of the numerical values of the datasets
 data_math_description = data_math.describe()
 data_port_description = data_port.describe()
-"""*Explaining Columns*
 
-school = (GP or MS)
-sex = (F or M)
-age = (15-22)
-address = urban or rural (U or R)
-famsize = 'less or equal to 3' or 'greater than 3' (LE3 or GT3)
-Psatus = parent's cohabitation status: together or apart (T or A)
-Medu = mother's education: none, primary, 5th to 9th grade, secondary, higher (0-4)
-Fedu = father's education: none, primary, 5th to 9th grade, secondary, higher (0-4)
-Mjob = mother's job: (teacher, health, services, at_home, other)
-Fjob = father's job: (teacher, health, services, at_home, other)
-reason = reason to choose school: close to home, reputation, course preverence, other (home, reputation, course, other)
-guardian = student's guardian (mother, father, other)
-traveltime = home to school travel time (1=1-<15min, 2=15-30min, 3=30-60min, 4=>1h)
-studytime = weekly study time (1=<2h, 2=2-5h, 3=5-10h, 4=>10h)
-failures = number of past class failures (n if 1<=n<3, else 4)
-schoolsup = extra educational support (yes or no)
-famsup = family educational support (yes or no)
-paid = extra paid classes within the course subject (yes or no)
-activities = extra-curricular activities (yes or no)
-nursery = attended nursery school (yes or no)
-higher = wants to take higher education (yes or no)
-internet = internet access at home (yes or no)
-romantic = with a romantic relationship (yes or no)
-famrel = quality of family relationships (1=very bad to 5=excellent)
-freetime = free time after school (1= very low to 5=very high)
-goout = going out with friends (1=very low to 5=very high)
-Dalc = workday alcohol consumption (1=very low to 5=very high)
-Walc = weekend alcohol consumption (1=very low to 5=very high)
-health = current health status (1=very bad to 5=very good)
-absences = number of school absences (0-93)
-G1-G3 = first/second/final grade (0-20)
-"""
-
-#Define categorical columns
+# Define categorical columns
 cat_cols = ['sex', 'school', 'address', 'famsize', 'Pstatus', 'Medu', 'Fedu', 'Mjob', 'Fjob', 'reason', 'guardian',
             'traveltime', 'famrel', 'freetime', 'goout', 'Dalc', 'Walc', 'health', 'schoolsup', 'famsup',
             'paid', 'activities', 'nursery', 'higher', 'internet', 'romantic', 'studytime', 'G3 passed',
             '5-level grade']
-#Define numerical columns
+# Define numerical columns
 num_cols = ['age', 'absences', 'failures', 'G1', 'G2', 'G3']
 
-#Set categorical columns to datatype category
+# Set categorical columns to datatype category
 data_math[cat_cols] = data_math[cat_cols].astype('category')
 data_port[cat_cols] = data_port[cat_cols].astype('category')
 
@@ -92,16 +58,16 @@ for var in num_cols:
 
 # If Shapiro significant => data not normally distributed -> they are all not normally distributed
 
-#Combine the datasets
+# Combine the datasets
 data_merged_raw = pd.concat([data_math, data_port])
 data_merged = data_merged_raw.drop_duplicates(
     subset=data_math.columns.drop(['G1', 'G2', 'G3', 'G3 passed', '5-level grade']).tolist())
 
-#create a dictionary for the data-frame names
+# create a dictionary for the data-frame names
 data_titles = {'Math data': data_math, 'Portuguese data': data_port, 'Merged data': data_merged}
 
 
-#create a function that allows to get the name of a dataframe
+# create a function that allows to get the name of a dataframe
 def get_dataset_name(df):
     for name, dataset in data_titles.items():
         if df.equals(dataset):
@@ -109,7 +75,7 @@ def get_dataset_name(df):
     return None
 
 
-#Function to plot the variable as histogram
+# Function to plot a variable as histogram
 
 def plot_data(data, column):
     plt.figure(figsize=(10, 8))
@@ -121,7 +87,7 @@ def plot_data(data, column):
     plt.close()
 
 
-#Function to plot the variable as boxplot
+# Function to plot the variable as boxplot
 def boxplot_data(data, column):
     plt.figure(figsize=(10, 8))
     sns.boxplot(x=data[column], color='#008F91')
@@ -208,7 +174,7 @@ xlabels = {
     "5-level grade": "G3 converted to 5-level grade"
 }
 
-#Create paths directorys for plots
+# Create paths directories for plots
 for path in [f'{os.getcwd()}/output',
              f'{os.getcwd()}/output/{get_dataset_name(data_math)}',
              f'{os.getcwd()}/output/{get_dataset_name(data_port)}',
@@ -216,17 +182,18 @@ for path in [f'{os.getcwd()}/output',
     if not os.path.exists(path):
         os.makedirs(path)
 
-# Plot all distributions as histograms
+# Plot some distributions as histograms
 for data in [data_math, data_port, data_merged]:
-    for column in data.columns:
+    for column in ['G3', 'G3 passed', '5-level grade']:
         plot_data(data, column)
-# Plot numerical distributions as boxplots
+
+""""# Plot numerical distributions as boxplots
 for data in [data_math, data_port]:
-    for column in num_cols:
-        boxplot_data(data, column)
+    for column in ['age']:
+        boxplot_data(data, column)"""
 
 
-#Define Random Forest Regressor Algorithm
+# Define Random Forest Regressor Algorithm
 def RF_regressor(data, label):
     # parameter grid for the hyperparameters
     parameter_grid = {'n_estimators': [100, 200],
@@ -393,7 +360,7 @@ def RF_classifier(data, label):
 
 #Define an overview table for the model results
 overview = pd.DataFrame(
-    columns=['Accuracy', 'Precision', 'Recall', 'F1', 'ROC-AUC', 'MAE', 'MAE-std', 'RMSE', 'RMSE-std', 'R2',
+    columns=['Accuracy', 'Accuracy-std', 'Precision', 'Recall', 'F1', 'ROC-AUC', 'ROC-AUC-std', 'MAE', 'MAE-std', 'RMSE', 'RMSE-std', 'R2',
              'R2-std', 'main feature', 'top 5 features'])
 model_parameters = pd.DataFrame(
     columns=['max_depth', 'max_features', 'min_samples_leaf', 'min_samples_split', 'n_estimators'])
@@ -429,10 +396,12 @@ for data in [data_math, data_port, data_merged]:
             model_parameters.loc[f'{get_dataset_name(data)} Classification - {label}', key] = clf_best_params[key]
         # save the performance parameters in the overview table
         overview.loc[f'{get_dataset_name(data)} - {label}', 'Accuracy'] = clf_mean_metrics['Accuracy']
+        overview.loc[f'{get_dataset_name(data)} - {label}', 'Accuracy-std'] = clf_std_metrics['Accuracy']
         overview.loc[f'{get_dataset_name(data)} - {label}', 'Precision'] = clf_mean_metrics['Precision']
         overview.loc[f'{get_dataset_name(data)} - {label}', 'F1'] = clf_mean_metrics['F1 Score']
         overview.loc[f'{get_dataset_name(data)} - {label}', 'Recall'] = clf_mean_metrics['Recall']
         overview.loc[f'{get_dataset_name(data)} - {label}', 'ROC-AUC'] = clf_mean_metrics['ROC-AUC']
+        overview.loc[f'{get_dataset_name(data)} - {label}', 'ROC-AUC-std'] = clf_std_metrics['ROC-AUC']
         overview.loc[f'{get_dataset_name(data)} - {label}', 'main feature'] = clf_feature_importances_df.Feature.iloc[0]
         overview.loc[f'{get_dataset_name(data)} - {label}', 'top 5 features'] = clf_feature_importances_df.Feature.head(
             5).to_list()
@@ -440,19 +409,20 @@ for data in [data_math, data_port, data_merged]:
         features_overview[f'{get_dataset_name(data)}-{label}_features'] = clf_feature_importances_df
 
 #Plot the R2 values of all RF-Regressions
-plt.figure(figsize=(8,5))
+plt.figure(figsize=(8, 5))
 sns.barplot(data=overview.dropna(subset='R2'), x=overview.dropna(subset='R2').index, y='R2',
-            yerr=overview.dropna(subset='R2')['R2-std'] ,color='#008F91')
-plt.title(r'$R^2$ values of the three Random Forest Regressors',fontweight='bold', size=14)
-plt.ylabel(r'$R^2$ value',fontweight='bold', size=12)
+            yerr=overview.dropna(subset='R2')['R2-std'], color='#008F91')
+plt.title(r'$R^2$ values of the three Random Forest Regressors', fontweight='bold', size=14)
+plt.ylabel(r'$R^2$ value', fontweight='bold', size=12)
 plt.tight_layout()
 plt.savefig(f'./output/R^2 values RF_regressor')
 
 #Plot the Accuracy values of all RF-Regressions
-plt.figure(figsize=(8,5))
-sns.barplot(data=overview.dropna(subset='Accuracy'), x=overview.dropna(subset='Accuracy').index, y='Accuracy', color='#008F91')
-plt.title('Accuracy values of the three Random Forest Classifiers',fontweight='bold', size=14)
-plt.ylabel('Accuracy value',fontweight='bold', size=12)
+plt.figure(figsize=(8, 5))
+sns.barplot(data=overview.dropna(subset='Accuracy'), x=overview.dropna(subset='Accuracy').index, y='Accuracy',
+            yerr=overview.dropna(subset='Accuracy')['Accuracy-std'], color='#008F91')
+plt.title('Accuracy values of the three Random Forest Classifiers', fontweight='bold', size=14)
+plt.ylabel('Accuracy value', fontweight='bold', size=12)
 plt.xticks(rotation=66)
 plt.tight_layout()
 plt.savefig(f'./output/Accuracy values RF_classifier')
