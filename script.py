@@ -3,7 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
-from sklearn.model_selection import StratifiedKFold, GridSearchCV
+from sklearn.model_selection import train_test_split, StratifiedKFold, GridSearchCV, cross_val_score, KFold
+from sklearn.linear_model import  LinearRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.metrics import (root_mean_squared_error, mean_absolute_error, r2_score,
@@ -192,6 +193,75 @@ for data in [data_math, data_port]:
     for column in ['age']:
         boxplot_data(data, column)"""
 
+#Define a linear Regression Algorithm and directly plot the data
+def perform_linear_regression_and_plot(data, subject):
+    # Perform one-hot encoding on the categorical features
+    data_encoded = pd.get_dummies(data, columns=cat_cols, drop_first=True, dtype=int)
+
+    # Construct features (X) and labels (y)
+    X = data_encoded.drop(["G3", "G3 passed", "5-level grade", "G1", "G2", 'age'], axis=1)
+    y = data_encoded['G3']
+
+    # Update num_cols based on actual numerical columns in X (skip non-existent columns)
+    num_cols = X.select_dtypes(include=np.number).columns.tolist()
+
+    # Standardize numerical features using StandardScaler
+    sc = StandardScaler()
+    X[num_cols] = sc.fit_transform(X[num_cols])
+
+    # Convert pandas DataFrame to numpy array
+    X = np.array(X)
+    y = np.array(y)
+
+    # Initialize the model using sklearn
+    LR = LinearRegression()
+
+    # Perform cross-validation
+    kf = KFold(n_splits=5, shuffle=True, random_state=47)
+    r2_scores = cross_val_score(LR, X, y, cv=kf, scoring='r2')
+    rmse_scores = -cross_val_score(LR, X, y, cv=kf, scoring='neg_root_mean_squared_error')
+
+    # Train-test split to visualize predictions
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=47)
+    LR.fit(X_train, y_train)
+    y_pred = LR.predict(X_test)
+
+    # Make a scatter plot (prediction vs ground truth)
+    plt.figure(figsize=(9, 6))
+    plt.scatter(y_test, y_pred, alpha=0.7, color='#008F91')
+    plt.xlabel('Actual Grades')
+    plt.ylabel('Predicted Grades')
+    plt.title(f'Linear Regression: Predicted vs. Actual Grades - {subject}')
+    plt.grid(True)
+
+    # Add trendline
+    z = np.polyfit(y_test, y_pred, 1)
+    p = np.poly1d(z)
+    plt.plot(y_test, p(y_test), "r--")
+
+    plt.tight_layout()
+
+    # Save the figure with subject-specific filename
+    plt.savefig(os.path.join(f'./output/', f"LinearRegression_{subject}.png"), dpi=100)
+    plt.close()
+
+    # Report the performance metrics
+    print(f"Performance Metrics for {subject}:")
+    print(f"R2 scores: {r2_scores}")
+    print(f"Mean R2 score: {np.mean(r2_scores):.3f}")
+    print(f"RMSE scores: {rmse_scores}")
+    print(f"Mean RMSE: {np.mean(rmse_scores):.3f}")
+
+    # Extract main features (coefficients)
+    coefficients = LR.coef_
+    feature_importance_df = pd.DataFrame({
+        "Feature": data_encoded.drop(["G3", "G3 passed", "5-level grade", "G1", "G2", 'age'], axis=1).columns,
+        "Coefficient": coefficients,
+        "Absolute Coefficient": np.abs(coefficients)
+    }).sort_values(by="Absolute Coefficient", ascending=False)
+
+    print(f"\nTop features for {subject}:")
+    print(feature_importance_df.head(7))  # Print top 7 features
 
 # Define Random Forest Regressor Algorithm
 def RF_regressor(data, label):
@@ -358,7 +428,14 @@ def RF_classifier(data, label):
     return mean_metrics, std_metrics, best_params, clf_feature_importances_df
 
 
-#Define an overview table for the model results
+# Perform linear regression and generate plots for each dataset
+perform_linear_regression_and_plot(data_math, "Mathematics")
+perform_linear_regression_and_plot(data_port, "Portuguese")
+perform_linear_regression_and_plot(data_merged, "Merged")
+
+
+
+#Define an overview table for the Random Forest results
 overview = pd.DataFrame(
     columns=['Accuracy', 'Accuracy-std', 'Precision', 'Recall', 'F1', 'ROC-AUC', 'ROC-AUC-std', 'MAE', 'MAE-std', 'RMSE', 'RMSE-std', 'R2',
              'R2-std', 'main feature', 'top 5 features'])
