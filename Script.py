@@ -43,7 +43,6 @@ data_math['5-level grade'] = pd.cut(data_math['G3'], bins=bins, labels=labels, r
 data_port['5-level grade'] = pd.cut(data_port['G3'], bins=bins, labels=labels, right=False)
 
 # Get a description of the numerical values of the datasets
-print('Description of the Datasets:')
 data_math_description = data_math.describe()
 data_port_description = data_port.describe()
 
@@ -94,7 +93,8 @@ def plot_data(data, column, output_folder):
     plt.title(f"Distribution of\n{titles[column]} in {get_dataset_name(data)}", size=14, fontweight='bold')
     plt.xlabel(xlabels[column], fontweight='bold', size=16)
     plt.ylabel('Count', fontweight='bold', size=16)
-    plt.savefig(output_folder)
+    plt.tight_layout()
+    plt.savefig(f'{output_folder}/{get_dataset_name(data)}-{column}_histplot')
     plt.close()
 
 
@@ -178,10 +178,7 @@ xlabels = {
 for path in [f'{os.getcwd()}/output',
              f'{os.getcwd()}/output/Grade plots',
              f'{os.getcwd()}/output/Random Forest',
-             f'{os.getcwd()}/output/Linear Regression'
-             f'{os.getcwd()}/output/{get_dataset_name(data_math)}',
-             f'{os.getcwd()}/output/{get_dataset_name(data_port)}',
-             f'{os.getcwd()}/output/{get_dataset_name(data_merged)}',
+             f'{os.getcwd()}/output/Linear Regression',
              f'{os.getcwd()}/output/class reports',
              f'{os.getcwd()}/output/Decision Trees',
              f'{os.getcwd()}/output/DT plots']:
@@ -308,7 +305,7 @@ def RF_regressor(data, label):
         # create Random forest regressor
         rf_regressor = RandomForestRegressor(random_state=47)
         # Conduct GridSearch cross validation
-        Reg_GS = GridSearchCV(rf_regressor, parameter_grid, cv=5, verbose=3)
+        Reg_GS = GridSearchCV(rf_regressor, parameter_grid, cv=5, verbose=3, n_jobs=-1)
         Reg_GS.fit(X_train, y_train)
         best_params = Reg_GS.best_params_
 
@@ -385,7 +382,7 @@ def RF_classifier(data, label):
         rf_classifier = RandomForestClassifier(random_state=47)
 
         # Conduct GridSearch cross validation
-        clf_GS = GridSearchCV(rf_classifier, parameter_grid, cv=5, verbose=3)
+        clf_GS = GridSearchCV(rf_classifier, parameter_grid, cv=5, verbose=3, n_jobs=-1)
         clf_GS.fit(X_train, y_train)
         best_params = clf_GS.best_params_
 
@@ -491,16 +488,15 @@ for data in [data_math, data_port, data_merged]:
         # get the feature importances into a dictionary
         features_overview[f'{get_dataset_name(data)}-{label}_features'] = clf_feature_importances_df
 
-print(overview)
 
-# Plot the R2 values of all RF-Regressions
+# Plot the R^2 values of all RF-Regressions
 plt.figure(figsize=(8, 5))
 sns.barplot(data=overview.dropna(subset='R2'), x=overview.dropna(subset='R2').index, y='R2',
             yerr=overview.dropna(subset='R2')['R2-std'], color='#008F91')
 plt.title(r'$R^2$ values of the three Random Forest Regressors', fontweight='bold', size=14)
 plt.ylabel(r'$R^2$ value', fontweight='bold', size=12)
 plt.tight_layout()
-plt.savefig(f'./output/R^2 values RF_regressor')
+plt.savefig(f'./output/Random Forest/R^2 values RF_regressor')
 
 # Plot the Accuracy values of all RF-Regressions
 plt.figure(figsize=(8, 5))
@@ -510,7 +506,7 @@ plt.title('Accuracy values of the six Random Forest Classifiers', fontweight='bo
 plt.ylabel('Accuracy value', fontweight='bold', size=12)
 plt.xticks(rotation=66)
 plt.tight_layout()
-plt.savefig(f'./output/Accuracy values RF_classifier')
+plt.savefig(f'./output/Random Forest/Accuracy values RF_classifier')
 
 
 # Plot a boxplot with regression line over the failures and G3 in data_merged
@@ -522,7 +518,7 @@ plt.title(f'G3 score over failures in Merged data with regression line', fontwei
 plt.xlabel('Failures', fontweight='bold', size=12)
 plt.ylabel('G3 score', fontweight='bold', size=12)
 plt.tight_layout()
-plt.savefig(f'./output/Merged data_failures_over_G3')
+plt.savefig(f'./output/Random Forest/Merged data_failures_over_G3')
 plt.close()
 
 
