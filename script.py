@@ -22,9 +22,15 @@ data_port = pd.read_csv('./data/Portuguese.csv')
 missing_val_math = data_math.isnull().sum().sum()
 missing_val_port = data_port.isnull().sum().sum()
 
+print(f'There are {missing_val_port} missing values in the Portuguese data and {missing_val_math} '
+      f'missing values in the Math data')
+
 # Check for duplicated values
 dupl_port = data_port[data_port.duplicated()].size
 dupl_math = data_math[data_math.duplicated()].size
+
+print(f'There are {dupl_math} duplicates in the Math data and {dupl_port} '
+      f'duplicates in the Portuguese data')
 
 # Create a new column that indicates if G3 is passed or not
 data_math['G3 passed'] = data_math['G3'].apply(lambda x: 'Passed' if x >= 10 else 'Failed')
@@ -37,6 +43,7 @@ data_math['5-level grade'] = pd.cut(data_math['G3'], bins=bins, labels=labels, r
 data_port['5-level grade'] = pd.cut(data_port['G3'], bins=bins, labels=labels, right=False)
 
 # Get a description of the numerical values of the datasets
+print('Description of the Datasets:')
 data_math_description = data_math.describe()
 data_port_description = data_port.describe()
 
@@ -53,6 +60,7 @@ data_math[cat_cols] = data_math[cat_cols].astype('category')
 data_port[cat_cols] = data_port[cat_cols].astype('category')
 
 # Check if continuous variables are normally distributed
+print('Checking for Normality of the numerical columns:')
 print('Maths:')
 for var in num_cols:
     print(f"Shapiro-Wilk for {var}, p-value: {sts.shapiro(data_math[var]).pvalue: .10f}")
@@ -80,17 +88,17 @@ def get_dataset_name(df):
 
 
 # Function to plot a variable as histogram
-def plot_data(data, column):
+def plot_data(data, column, output_folder):
     plt.figure(figsize=(10, 8))
     sns.histplot(data[column], binwidth=1, discrete=True, color='#008F91')
     plt.title(f"Distribution of\n{titles[column]} in {get_dataset_name(data)}", size=14, fontweight='bold')
     plt.xlabel(xlabels[column], fontweight='bold', size=16)
     plt.ylabel('Count', fontweight='bold', size=16)
-    plt.savefig(f'./output/{get_dataset_name(data)}/{column}_histplot')
+    plt.savefig(output_folder)
     plt.close()
 
 
-# Plot the distributions of the columns as histograms to get an overview
+# Define Titles and labels for the plots
 titles = {
     "school": "visited school",
     "sex": "sex",
@@ -168,26 +176,32 @@ xlabels = {
 
 # Create paths directories for plots
 for path in [f'{os.getcwd()}/output',
+             f'{os.getcwd()}/output/Grade plots',
+             f'{os.getcwd()}/output/Random Forest',
+             f'{os.getcwd()}/output/Linear Regression'
              f'{os.getcwd()}/output/{get_dataset_name(data_math)}',
              f'{os.getcwd()}/output/{get_dataset_name(data_port)}',
-             f'{os.getcwd()}/output/{get_dataset_name(data_merged)}']:
+             f'{os.getcwd()}/output/{get_dataset_name(data_merged)}',
+             f'{os.getcwd()}/output/class reports',
+             f'{os.getcwd()}/output/Decision Trees',
+             f'{os.getcwd()}/output/DT plots']:
     if not os.path.exists(path):
         os.makedirs(path)
 
 # Plot the grade distributions as histograms
 for data in [data_math, data_port, data_merged]:
     for column in ['G3', 'G3 passed', '5-level grade']:
-        plot_data(data, column)
+        plot_data(data, column, f'./output/Grade plots')
 
 
-#Define a linear Regression Algorithm and directly plot the data
+# Define a linear Regression Algorithm and directly plot the data
 def perform_linear_regression_and_plot(data, subject):
-    # Perform one-hot encoding on the categorical features
-    data_encoded = pd.get_dummies(data, columns=cat_cols, drop_first=True, dtype=int)
-
-    # Construct features (X) and labels (y)
-    X = data_encoded.drop(["G3", "G3 passed", "5-level grade", "G1", "G2", 'age'], axis=1)
-    y = data_encoded['G3']
+    # Select Features and Labels
+    X = data.drop(["G3", "G3 passed", "5-level grade", "G1", "G2", 'age'], axis=1)  # Features
+    y = data['G3']  # Label
+    remaining_cat_cols = [col for col in cat_cols if col in X.columns]
+    # one hot encoding
+    X = pd.get_dummies(X, columns=remaining_cat_cols, drop_first=True)
 
     # Update num_cols based on actual numerical columns in X (skip non-existent columns)
     num_cols = X.select_dtypes(include=np.number).columns.tolist()
@@ -197,19 +211,18 @@ def perform_linear_regression_and_plot(data, subject):
     X[num_cols] = sc.fit_transform(X[num_cols])
 
     # Convert pandas DataFrame to numpy array
-    X = np.array(X)
-    y = np.array(y)
-
+    X_array = np.array(X)
+    y_array = np.array(y)
     # Initialize the model using sklearn
     LR = LinearRegression()
 
     # Perform cross-validation
     kf = KFold(n_splits=5, shuffle=True, random_state=47)
-    r2_scores = cross_val_score(LR, X, y, cv=kf, scoring='r2')
-    rmse_scores = -cross_val_score(LR, X, y, cv=kf, scoring='neg_root_mean_squared_error')
+    r2_scores = cross_val_score(LR, X_array, y_array, cv=kf, scoring='r2')
+    rmse_scores = -cross_val_score(LR, X_array, y_array, cv=kf, scoring='neg_root_mean_squared_error')
 
     # Train-test split to visualize predictions
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=47)
+    X_train, X_test, y_train, y_test = train_test_split(X_array, y_array, test_size=0.2, random_state=47)
     LR.fit(X_train, y_train)
     y_pred = LR.predict(X_test)
 
@@ -229,7 +242,7 @@ def perform_linear_regression_and_plot(data, subject):
     plt.tight_layout()
 
     # Save the figure with subject-specific filename
-    plt.savefig(os.path.join(f'./output/', f"LinearRegression_{subject}.png"), dpi=100)
+    plt.savefig(os.path.join(f'./output/Linear Regression/', f"LinearRegression_{subject}.png"), dpi=100)
     plt.close()
 
     # Report the performance metrics
@@ -242,7 +255,7 @@ def perform_linear_regression_and_plot(data, subject):
     # Extract main features (coefficients)
     coefficients = LR.coef_
     feature_importance_df = pd.DataFrame({
-        "Feature": data_encoded.drop(["G3", "G3 passed", "5-level grade", "G1", "G2", 'age'], axis=1).columns,
+        "Feature": X.columns.tolist(),
         "Coefficient": coefficients,
         "Absolute Coefficient": np.abs(coefficients)
     }).sort_values(by="Absolute Coefficient", ascending=False)
@@ -277,8 +290,10 @@ def RF_regressor(data, label):
     reg_feature_importances = np.zeros(X.shape[1])
 
     # Cross Validation
+
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=47)
     fold = 1
+    print(f'Performing Cross Validation for {label} in {get_dataset_name(data)}...')
     # Conduct Cross Validation
     for train_index, test_index in cv.split(X, y):
         print('Fold: ', fold)
@@ -325,6 +340,7 @@ def RF_regressor(data, label):
     mean_metrics = {key: np.mean(values) for key, values in metrics.items()}
     std_metrics = {key: np.std(values) for key, values in metrics.items()}
 
+    print(f'Performance metrics for {get_dataset_name(data)} and {label}:')
     for key, value in mean_metrics.items():
         print('{}: {:.3f} ± {:.3f}'.format(key.capitalize(), value, std_metrics[key]))
 
@@ -349,6 +365,7 @@ def RF_classifier(data, label):
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=47)
     fold = 1
 
+    print(f'Performing Cross Validation for {label} in {get_dataset_name(data)}...')
     # Conduct Cross Validation
     for train_index, test_index in cv.split(X, y):
         print('Fold:', fold)
@@ -409,6 +426,7 @@ def RF_classifier(data, label):
     mean_metrics = {key: np.mean(values) for key, values in metrics.items()}
     std_metrics = {key: np.std(values) for key, values in metrics.items()}
 
+    print(f'Performance metrics for {get_dataset_name(data)} and {label}:')
     for key, value in mean_metrics.items():
         print('{}: {:.3f} ± {:.3f}'.format(key, value, std_metrics[key]))
 
@@ -436,6 +454,7 @@ features_overview = {}
 
 # conduct several random forest iterations with different labels and different data
 for data in [data_math, data_port, data_merged]:
+    print(f'Random Forest Regressor for {get_dataset_name(data)}')
     reg_mean_metrics, reg_std_metrics, reg_best_params, reg_feature_importances_df = RF_regressor(data, 'G3')
     # get the parameters for the different models
     for key in reg_best_params:
@@ -454,6 +473,7 @@ for data in [data_math, data_port, data_merged]:
     features_overview[f'{get_dataset_name(data)}-G3_features'] = reg_feature_importances_df
     # conduct a classification model for each dataset and label
     for label in ['G3 passed', '5-level grade']:
+        print(f'Random Forest Classifier for {get_dataset_name(data)}')
         clf_mean_metrics, clf_std_metrics, clf_best_params, clf_feature_importances_df = RF_classifier(data, label)
         for key in clf_best_params:
             model_parameters.loc[f'{get_dataset_name(data)} Classification - {label}', key] = clf_best_params[key]
@@ -471,6 +491,8 @@ for data in [data_math, data_port, data_merged]:
         # get the feature importances into a dictionary
         features_overview[f'{get_dataset_name(data)}-{label}_features'] = clf_feature_importances_df
 
+print(overview)
+
 # Plot the R2 values of all RF-Regressions
 plt.figure(figsize=(8, 5))
 sns.barplot(data=overview.dropna(subset='R2'), x=overview.dropna(subset='R2').index, y='R2',
@@ -484,23 +506,12 @@ plt.savefig(f'./output/R^2 values RF_regressor')
 plt.figure(figsize=(8, 5))
 sns.barplot(data=overview.dropna(subset='Accuracy'), x=overview.dropna(subset='Accuracy').index, y='Accuracy',
             yerr=overview.dropna(subset='Accuracy')['Accuracy-std'], color='#008F91')
-plt.title('Accuracy values of the three Random Forest Classifiers', fontweight='bold', size=14)
+plt.title('Accuracy values of the six Random Forest Classifiers', fontweight='bold', size=14)
 plt.ylabel('Accuracy value', fontweight='bold', size=12)
 plt.xticks(rotation=66)
 plt.tight_layout()
 plt.savefig(f'./output/Accuracy values RF_classifier')
 
-# Plot a boxplot with regression line over the failures and G3 in data_port
-plt.figure(figsize=(8, 5))
-sns.boxplot(x='failures', y='G3', data=data_port, color='#008F91', )
-sns.regplot(x='failures', y='G3', data=data_port, scatter=False, ci=None, color='red',
-            line_kws={'label': 'Regression Line'})
-plt.title(f'G3 score over failures in Portuguese data with regression line', fontweight='bold', size=14)
-plt.xlabel('Failures', fontweight='bold', size=12)
-plt.ylabel('G3 score', fontweight='bold', size=12)
-plt.tight_layout()
-plt.savefig(f'./output/Portuguese data_failures_over_G3')
-plt.close()
 
 # Plot a boxplot with regression line over the failures and G3 in data_merged
 plt.figure(figsize=(8, 5))
@@ -514,35 +525,7 @@ plt.tight_layout()
 plt.savefig(f'./output/Merged data_failures_over_G3')
 plt.close()
 
-# Plot a boxplot over the failures and G3 passed in data_port
-plt.figure(figsize=(8, 5))
-sns.violinplot(x='failures', y='G3 passed', data=data_port, color='#008F91', cut=0, density_norm='area')
-plt.title(f'G3 passing over failures in Portuguese data', fontweight='bold', size=14)
-plt.xlabel('Failures', fontweight='bold', size=12)
-plt.ylabel('G3 passed', fontweight='bold', size=12)
-plt.tight_layout()
-plt.savefig(f'./output/Portuguese data_failures_over_G3 passed')
-plt.close()
 
-# Plot a violinplot over the failures and G3 passed in data_merged
-plt.figure(figsize=(8, 5))
-sns.violinplot(x='failures', y='G3 passed', data=data_merged, color='#008F91', cut=0, density_norm='area')
-plt.title(f'G3 passing over failures in Merged data', fontweight='bold', size=14)
-plt.xlabel('Failures', fontweight='bold', size=12)
-plt.ylabel('G3 passed', fontweight='bold', size=12)
-plt.tight_layout()
-plt.savefig(f'./output/Merged data_failures_over_G3 passed')
-plt.close()
-
-# Plot a boxplot over the absences and the 5-level grade in data_math
-plt.figure(figsize=(8, 5))
-sns.boxplot(y='absences', x='5-level grade', data=data_math, color='#008F91', )
-plt.title(f'5-level grade over absences in Math data', fontweight='bold', size=14)
-plt.ylabel('Absences', fontweight='bold', size=12)
-plt.xlabel('5-level grade', fontweight='bold', size=12)
-plt.tight_layout()
-plt.savefig(f'./output/Math data_failures_over_5-level grade')
-plt.close()
 
 ### Decision Trees Code ###
 
@@ -554,7 +537,6 @@ min_samples = 5
 x = ['Mathematics', 'Portuguese', 'Merged']
 n = 1
 
-### MATHEMATICS ###
 for target in targets:
 
     accuracies = {}
@@ -599,14 +581,15 @@ for target in targets:
     else:
         plt.title(f'Heatmap Classification Report Math {features[0]} and {features[1]} predicting {target}')
     plt.savefig(f'./output/class reports/Classification Report Math {features[0]} - {target}')
+    plt.close()
 
     # visualize
     plt.figure(n, figsize=(30, 20))
     n += 1
     tree.plot_tree(clf_math, filled=True, feature_names=X_math.columns, class_names=clf_math.classes_.astype(str))
     plt.title(f'Decision Tree Mathematics - {target}')
-    plt.savefig(f'/output/Decision Trees/decision tree math - {features[0]}-{target}.jpg', format='jpg')
-
+    plt.savefig(f'./output/Decision Trees/decision tree math - {features[0]}-{target}.jpg', format='jpg')
+    plt.close()
     ### PORTUGUESE ###
 
     # separate features and target
@@ -645,8 +628,9 @@ for target in targets:
     if len(features) == 1:
         plt.title(f'Heatmap Classification Report Port {features[0]} predicting {target}')
     else:
-        plt.title(f'Heatmap Classificatino Report Port {features[0]} and {features[1]} predicting {target}')
+        plt.title(f'Heatmap Classification Report Port {features[0]} and {features[1]} predicting {target}')
     plt.savefig(f'./output/class reports/Classification Report Port {features} - {target}')
+    plt.close()
 
     # visualize
     plt.figure(n, figsize=(30, 20))
@@ -654,6 +638,7 @@ for target in targets:
     tree.plot_tree(clf_port, filled=True, feature_names=X_port.columns, class_names=clf_port.classes_.astype(str))
     plt.title(f'Decision Tree Portuguese - {target}')
     plt.savefig(f'./output/Decision Trees/decision tree port - {features[0]}-{target}.png', format='png')
+    plt.close()
 
     ### MIXED
 
@@ -695,6 +680,7 @@ for target in targets:
     else:
         plt.title(f'Heatmap Classification Report Merged {features[0]} and {features[1]} predicting {target}')
     plt.savefig(f'./output/class reports/Classification Report Merged {features} - {target}')
+    plt.close()
 
     # visualize
     plt.figure(n, figsize=(50, 35))
@@ -702,6 +688,7 @@ for target in targets:
     tree.plot_tree(clf_merged, filled=True, feature_names=X_merged.columns, class_names=clf_merged.classes_.astype(str))
     plt.title(f'Decision Tree Merged - {features[0]} - {target}')
     plt.savefig(f'./output/Decision Trees/decision tree merged - {features[0]}-{target}.png', format='png')
+    plt.close()
 
     plt.figure(n, figsize=(8, 6))
     n += 1
@@ -714,6 +701,7 @@ for target in targets:
         plt.title(f'Accuracies of {features[0]} and {features[1]} predicting {target}')
     else:
         plt.title(f'Accuracies of {features[0]} predicting {target}')
-    plt.savefig(f'./output/plots/accuracies {features} predicting {target}')
+    plt.savefig(f'./output/DT plots/accuracies {features} predicting {target}')
+    plt.close()
 
 """Finale Version 17.06. 5x5"""
