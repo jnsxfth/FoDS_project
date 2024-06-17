@@ -3,12 +3,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
+import scipy.stats as sts
+from sklearn import tree
 from sklearn.model_selection import train_test_split, StratifiedKFold, GridSearchCV, cross_val_score, KFold
-from sklearn.linear_model import  LinearRegression
+from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.metrics import (root_mean_squared_error, mean_absolute_error, r2_score,
-                             precision_score, f1_score, roc_auc_score, accuracy_score, recall_score)
+from sklearn.metrics import (root_mean_squared_error, mean_absolute_error, r2_score, precision_score, f1_score,
+                             roc_auc_score, accuracy_score, recall_score, confusion_matrix, classification_report)
+from sklearn.tree import DecisionTreeClassifier
 from imblearn.over_sampling import SMOTE
 
 # import data
@@ -49,13 +52,13 @@ num_cols = ['age', 'absences', 'failures', 'G1', 'G2', 'G3']
 data_math[cat_cols] = data_math[cat_cols].astype('category')
 data_port[cat_cols] = data_port[cat_cols].astype('category')
 
-"""#Check if continuous variables are normally distributed
+# Check if continuous variables are normally distributed
 print('Maths:')
 for var in num_cols:
     print(f"Shapiro-Wilk for {var}, p-value: {sts.shapiro(data_math[var]).pvalue: .10f}")
 print('Portuguese:')
 for var in num_cols:
-    print(f"Shapiro-Wilk for {var}, p-value: {sts.shapiro(data_port[var]).pvalue: .10f}")"""
+    print(f"Shapiro-Wilk for {var}, p-value: {sts.shapiro(data_port[var]).pvalue: .10f}")
 
 # If Shapiro significant => data not normally distributed -> they are all not normally distributed
 
@@ -77,7 +80,6 @@ def get_dataset_name(df):
 
 
 # Function to plot a variable as histogram
-
 def plot_data(data, column):
     plt.figure(figsize=(10, 8))
     sns.histplot(data[column], binwidth=1, discrete=True, color='#008F91')
@@ -85,17 +87,6 @@ def plot_data(data, column):
     plt.xlabel(xlabels[column], fontweight='bold', size=16)
     plt.ylabel('Count', fontweight='bold', size=16)
     plt.savefig(f'./output/{get_dataset_name(data)}/{column}_histplot')
-    plt.close()
-
-
-# Function to plot the variable as boxplot
-def boxplot_data(data, column):
-    plt.figure(figsize=(10, 8))
-    sns.boxplot(x=data[column], color='#008F91')
-    plt.title(f'Distribution of\n {titles[column]} in {get_dataset_name(data)}', size=14, fontweight='bold')
-    plt.xlabel(xlabels[column], fontweight='bold', size=16)
-    plt.ylabel('Count', fontweight='bold', size=16)
-    plt.savefig(f'./output/{get_dataset_name(data)}/{column}_boxplot')
     plt.close()
 
 
@@ -183,15 +174,11 @@ for path in [f'{os.getcwd()}/output',
     if not os.path.exists(path):
         os.makedirs(path)
 
-# Plot some distributions as histograms
+# Plot the grade distributions as histograms
 for data in [data_math, data_port, data_merged]:
     for column in ['G3', 'G3 passed', '5-level grade']:
         plot_data(data, column)
 
-""""# Plot numerical distributions as boxplots
-for data in [data_math, data_port]:
-    for column in ['age']:
-        boxplot_data(data, column)"""
 
 #Define a linear Regression Algorithm and directly plot the data
 def perform_linear_regression_and_plot(data, subject):
@@ -263,29 +250,36 @@ def perform_linear_regression_and_plot(data, subject):
     print(f"\nTop features for {subject}:")
     print(feature_importance_df.head(7))  # Print top 7 features
 
+
+# Parameter grid for the hyperparameters
+parameter_grid = {
+    'n_estimators': [100, 200],
+    'max_features': [None, 'sqrt', 'log2'],
+    'max_depth': [10, 20],
+    'min_samples_split': [2, 5],
+    'min_samples_leaf': [1, 2, 4]
+}
+
+
 # Define Random Forest Regressor Algorithm
 def RF_regressor(data, label):
-    # parameter grid for the hyperparameters
-    parameter_grid = {'n_estimators': [100, 200],
-                      'max_features': [None, 'sqrt', 'log2'],
-                      'max_depth': [10, 20], 'min_samples_split': [2, 5],
-                      'min_samples_leaf': [1, 2, 4]}
-
     # Select Features and Labels
     X = data.drop(["G3", "G3 passed", "5-level grade", "G1", "G2", 'age'], axis=1)  # Features
     y = data[label]  # Label
     remaining_cat_cols = [col for col in cat_cols if col in X.columns]
-    X = pd.get_dummies(X, columns=remaining_cat_cols, drop_first=True)  #one hot encoding
+    # one hot encoding
+    X = pd.get_dummies(X, columns=remaining_cat_cols, drop_first=True)
 
     # Metrics for the results
     metrics = {'Root Mean Squared error': [], 'Mean absolute error': [], 'R^2': []}
 
+    # Array for feature importances
     reg_feature_importances = np.zeros(X.shape[1])
 
     # Cross Validation
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=47)
     fold = 1
-    #Conduct Cross Validation
+    # Conduct Cross Validation
     for train_index, test_index in cv.split(X, y):
         print('Fold: ', fold)
         X_train, X_test = X.iloc[train_index], X.iloc[test_index]
@@ -298,36 +292,36 @@ def RF_regressor(data, label):
 
         # create Random forest regressor
         rf_regressor = RandomForestRegressor(random_state=47)
-        #Conduct GridSearch cross validation
+        # Conduct GridSearch cross validation
         Reg_GS = GridSearchCV(rf_regressor, parameter_grid, cv=5, verbose=3)
         Reg_GS.fit(X_train, y_train)
         best_params = Reg_GS.best_params_
 
-        #Make predictions
+        # Make predictions
         y_pred = Reg_GS.best_estimator_.predict(X_test)
 
-        #calculate metrics
+        # calculate metrics
         rmse = root_mean_squared_error(y_test, y_pred)
         mae = mean_absolute_error(y_test, y_pred)
         r2 = r2_score(y_test, y_pred)
 
-        #store metrics
+        # store metrics
         metrics['Root Mean Squared error'].append(rmse)
         metrics['Mean absolute error'].append(mae)
         metrics['R^2'].append(r2)
 
-        #Add feature importances
+        # Add feature importances
         reg_feature_importances += Reg_GS.best_estimator_.feature_importances_
 
         fold += 1
-    #Average feature importances across folds
+    # Average feature importances across folds
     reg_feature_importances = reg_feature_importances / cv.get_n_splits()
 
-    #Create overview dataframe
+    # Create overview dataframe
     reg_feature_importances_df = pd.DataFrame({'Feature': X.columns, 'Importance': reg_feature_importances})
     reg_feature_importances_df = reg_feature_importances_df.sort_values('Importance', ascending=False)
 
-    #Calculate mean and std of the metrics
+    # Calculate mean and std of the metrics
     mean_metrics = {key: np.mean(values) for key, values in metrics.items()}
     std_metrics = {key: np.std(values) for key, values in metrics.items()}
 
@@ -338,24 +332,17 @@ def RF_regressor(data, label):
 
 
 def RF_classifier(data, label):
-    # Parameter grid for the hyperparameters
-    parameter_grid = {
-        'n_estimators': [100, 200],
-        'max_features': [None, 'sqrt', 'log2'],
-        'max_depth': [10, 20],
-        'min_samples_split': [2, 5],
-        'min_samples_leaf': [1, 2, 4]
-    }
-
     # Select Features and Labels
     X = data.drop(["G3", "G3 passed", "5-level grade", "G1", "G2", 'age'], axis=1)  # Features
     y = data[label]  # Label
     remaining_cat_cols = [col for col in cat_cols if col in X.columns]
-    X = pd.get_dummies(X, columns=remaining_cat_cols, drop_first=True)  # One-hot encoding
+    # One-hot encoding
+    X = pd.get_dummies(X, columns=remaining_cat_cols, drop_first=True)
 
     # Metrics for the results
     metrics = {'Accuracy': [], 'Precision': [], 'Recall': [], 'F1 Score': [], 'ROC-AUC': []}
 
+    # Array for feature importances
     clf_feature_importances = np.zeros(X.shape[1])
 
     # Cross Validation
@@ -433,11 +420,10 @@ perform_linear_regression_and_plot(data_math, "Mathematics")
 perform_linear_regression_and_plot(data_port, "Portuguese")
 perform_linear_regression_and_plot(data_merged, "Merged")
 
-
-
-#Define an overview table for the Random Forest results
+# Define an overview table for the Random Forest results
 overview = pd.DataFrame(
-    columns=['Accuracy', 'Accuracy-std', 'Precision', 'Recall', 'F1', 'ROC-AUC', 'ROC-AUC-std', 'MAE', 'MAE-std', 'RMSE', 'RMSE-std', 'R2',
+    columns=['Accuracy', 'Accuracy-std', 'Precision', 'Recall', 'F1', 'ROC-AUC', 'ROC-AUC-std', 'MAE', 'MAE-std',
+             'RMSE', 'RMSE-std', 'R2',
              'R2-std', 'main feature', 'top 5 features'])
 model_parameters = pd.DataFrame(
     columns=['max_depth', 'max_features', 'min_samples_leaf', 'min_samples_split', 'n_estimators'])
@@ -448,13 +434,13 @@ label_coding = {'G3 passed': ['G3 passed_Passed', 'G3 passed_Failed'],
 
 features_overview = {}
 
-#conduct several random forest iterations with different labels and different data
+# conduct several random forest iterations with different labels and different data
 for data in [data_math, data_port, data_merged]:
     reg_mean_metrics, reg_std_metrics, reg_best_params, reg_feature_importances_df = RF_regressor(data, 'G3')
-    #get the parameters for the different models
+    # get the parameters for the different models
     for key in reg_best_params:
         model_parameters.loc[f'{get_dataset_name(data)} Regression - G3', key] = reg_best_params[key]
-    #save the performance parameters in the overview table
+    # save the performance parameters in the overview table
     overview.loc[f'{get_dataset_name(data)} - G3', 'RMSE'] = reg_mean_metrics['Root Mean Squared error']
     overview.loc[f'{get_dataset_name(data)} - G3', 'RMSE-std'] = reg_std_metrics['Root Mean Squared error']
     overview.loc[f'{get_dataset_name(data)} - G3', 'MAE'] = reg_mean_metrics['Mean absolute error']
@@ -464,9 +450,9 @@ for data in [data_math, data_port, data_merged]:
     overview.loc[f'{get_dataset_name(data)} - G3', 'main feature'] = reg_feature_importances_df.Feature.iloc[0]
     overview.loc[f'{get_dataset_name(data)} - G3', 'top 5 features'] = reg_feature_importances_df.Feature.head(
         5).to_list()
-    #get the feature importances into a dictionary
+    # get the feature importances into a dictionary
     features_overview[f'{get_dataset_name(data)}-G3_features'] = reg_feature_importances_df
-    #conduct a classification model for each dataset and label
+    # conduct a classification model for each dataset and label
     for label in ['G3 passed', '5-level grade']:
         clf_mean_metrics, clf_std_metrics, clf_best_params, clf_feature_importances_df = RF_classifier(data, label)
         for key in clf_best_params:
@@ -485,7 +471,7 @@ for data in [data_math, data_port, data_merged]:
         # get the feature importances into a dictionary
         features_overview[f'{get_dataset_name(data)}-{label}_features'] = clf_feature_importances_df
 
-#Plot the R2 values of all RF-Regressions
+# Plot the R2 values of all RF-Regressions
 plt.figure(figsize=(8, 5))
 sns.barplot(data=overview.dropna(subset='R2'), x=overview.dropna(subset='R2').index, y='R2',
             yerr=overview.dropna(subset='R2')['R2-std'], color='#008F91')
@@ -494,7 +480,7 @@ plt.ylabel(r'$R^2$ value', fontweight='bold', size=12)
 plt.tight_layout()
 plt.savefig(f'./output/R^2 values RF_regressor')
 
-#Plot the Accuracy values of all RF-Regressions
+# Plot the Accuracy values of all RF-Regressions
 plt.figure(figsize=(8, 5))
 sns.barplot(data=overview.dropna(subset='Accuracy'), x=overview.dropna(subset='Accuracy').index, y='Accuracy',
             yerr=overview.dropna(subset='Accuracy')['Accuracy-std'], color='#008F91')
@@ -528,7 +514,7 @@ plt.tight_layout()
 plt.savefig(f'./output/Merged data_failures_over_G3')
 plt.close()
 
-#Plot a boxplot over the failures and G3 passed in data_port
+# Plot a boxplot over the failures and G3 passed in data_port
 plt.figure(figsize=(8, 5))
 sns.violinplot(x='failures', y='G3 passed', data=data_port, color='#008F91', cut=0, density_norm='area')
 plt.title(f'G3 passing over failures in Portuguese data', fontweight='bold', size=14)
@@ -538,7 +524,7 @@ plt.tight_layout()
 plt.savefig(f'./output/Portuguese data_failures_over_G3 passed')
 plt.close()
 
-#Plot a violinplot over the failures and G3 passed in data_merged
+# Plot a violinplot over the failures and G3 passed in data_merged
 plt.figure(figsize=(8, 5))
 sns.violinplot(x='failures', y='G3 passed', data=data_merged, color='#008F91', cut=0, density_norm='area')
 plt.title(f'G3 passing over failures in Merged data', fontweight='bold', size=14)
@@ -548,7 +534,7 @@ plt.tight_layout()
 plt.savefig(f'./output/Merged data_failures_over_G3 passed')
 plt.close()
 
-#Plot a boxplot over the absences and the 5-level grade in data_math
+# Plot a boxplot over the absences and the 5-level grade in data_math
 plt.figure(figsize=(8, 5))
 sns.boxplot(y='absences', x='5-level grade', data=data_math, color='#008F91', )
 plt.title(f'5-level grade over absences in Math data', fontweight='bold', size=14)
@@ -558,4 +544,176 @@ plt.tight_layout()
 plt.savefig(f'./output/Math data_failures_over_5-level grade')
 plt.close()
 
-"""Finale Version 11.06. 5x5"""
+### Decision Trees Code ###
+
+# select features and targets
+# manually choose which features and targets are generated
+features = ['Dalc', 'Walc']
+targets = ['G3', 'G3 passed', '5-level grade']
+min_samples = 5
+x = ['Mathematics', 'Portuguese', 'Merged']
+n = 1
+
+### MATHEMATICS ###
+for target in targets:
+
+    accuracies = {}
+
+    # separate features and target
+    X_math = data_math.loc[:, features]
+    y_math = data_math[target]
+
+    # split data into training and test sets
+    X_math_train, X_math_test, y_math_train, y_math_test = train_test_split(X_math, y_math, test_size=0.2,
+                                                                            random_state=42)
+
+    # train the decision tree classifier
+    clf_math = DecisionTreeClassifier(min_samples_leaf=min_samples, random_state=42)
+    clf_math.fit(X_math_train, y_math_train)
+
+    # make predictions
+    y_math_pred = clf_math.predict(X_math_test)
+
+    # evaluate the model
+    # accuracy
+    accuracy_math = accuracy_score(y_math_test, y_math_pred)
+    print(f"Accuracy (Mathematics) - {features[0]}-{target}: {accuracy_math}")
+    accuracies['Math'] = accuracy_math
+
+    # confusion matrix
+    conf_matrix_math = confusion_matrix(y_math_test, y_math_pred)
+    print(f"Confusion Matrix (Mathematics) - {target}:")
+    print(conf_matrix_math)
+
+    # make heatmap
+
+    # classification report
+    class_report_math = classification_report(y_math_test, y_math_pred, output_dict=True)
+    plt.figure(n, figsize=(8, 6))
+    n += 1
+    df = pd.DataFrame(class_report_math).transpose()
+    df = df.loc[:, ['precision', 'recall']]
+    sns.heatmap(df.iloc[:-1, :])
+    if len(features) == 1:
+        plt.title(f'Heatmap Classification Report Math {features[0]} predicting {target}')
+    else:
+        plt.title(f'Heatmap Classification Report Math {features[0]} and {features[1]} predicting {target}')
+    plt.savefig(f'./output/class reports/Classification Report Math {features[0]} - {target}')
+
+    # visualize
+    plt.figure(n, figsize=(30, 20))
+    n += 1
+    tree.plot_tree(clf_math, filled=True, feature_names=X_math.columns, class_names=clf_math.classes_.astype(str))
+    plt.title(f'Decision Tree Mathematics - {target}')
+    plt.savefig(f'/output/Decision Trees/decision tree math - {features[0]}-{target}.jpg', format='jpg')
+
+    ### PORTUGUESE ###
+
+    # separate features and target
+    X_port = data_port.loc[:, features]
+    y_port = data_port[target]
+
+    # split data into training and test set
+    X_port_train, X_port_test, y_port_train, y_port_test = train_test_split(X_port, y_port, test_size=0.2,
+                                                                            random_state=42)
+
+    # train the decision tree classifier
+    clf_port = DecisionTreeClassifier(min_samples_leaf=min_samples, random_state=42)
+    clf_port.fit(X_port_train, y_port_train)
+
+    # make predictions
+    y_port_pred = clf_port.predict(X_port_test)
+
+    # evaluate the model
+    # accuracy
+    accuracy_port = accuracy_score(y_port_test, y_port_pred)
+    print(f"Accuracy (Portuguese) - {features[0]}-{target}: {accuracy_port}")
+    accuracies['Port'] = accuracy_port
+
+    # confusion matrix
+    conf_matrix_port = confusion_matrix(y_port_test, y_port_pred)
+    print(f"Confusion Matrix (Portuguese) - {target}:")
+    print(conf_matrix_port)
+
+    # classification report
+    class_report_port = classification_report(y_port_test, y_port_pred, output_dict=True)
+    plt.figure(n, figsize=(8, 6))
+    n += 1
+    df = pd.DataFrame(class_report_port).transpose()
+    df = df.loc[:, ['precision', 'recall']]
+    sns.heatmap(df.iloc[:-1, :])
+    if len(features) == 1:
+        plt.title(f'Heatmap Classification Report Port {features[0]} predicting {target}')
+    else:
+        plt.title(f'Heatmap Classificatino Report Port {features[0]} and {features[1]} predicting {target}')
+    plt.savefig(f'./output/class reports/Classification Report Port {features} - {target}')
+
+    # visualize
+    plt.figure(n, figsize=(30, 20))
+    n += 1
+    tree.plot_tree(clf_port, filled=True, feature_names=X_port.columns, class_names=clf_port.classes_.astype(str))
+    plt.title(f'Decision Tree Portuguese - {target}')
+    plt.savefig(f'./output/Decision Trees/decision tree port - {features[0]}-{target}.png', format='png')
+
+    ### MIXED
+
+    # seperate features and target(s)
+    X_merged = data_merged.loc[:, features]
+    y_merged = data_merged[target]
+
+    # split data into training and test set
+    X_merged_train, X_merged_test, y_merged_train, y_merged_test = train_test_split(X_merged, y_merged, test_size=0.2,
+                                                                                    random_state=42)
+
+    # train the decision tree classifier
+    clf_merged = DecisionTreeClassifier(min_samples_leaf=min_samples, random_state=42)
+    clf_merged.fit(X_merged_train, y_merged_train)
+
+    # make predictions
+    y_merged_pred = clf_merged.predict(X_merged_test)
+
+    # evaluate the model
+    # accuracy
+    accuracy_merged = accuracy_score(y_merged_test, y_merged_pred)
+    print(f"Accuracy (Merged) - {features[0]}-{target}: {accuracy_merged}")
+    accuracies['Merged'] = accuracy_merged
+
+    # confusion matrix
+    conf_matrix_merged = confusion_matrix(y_merged_test, y_merged_pred)
+    print(f"Confusion Matrix (Merged) - {target}:")
+    print(conf_matrix_merged)
+
+    # classification report
+    class_report_merged = classification_report(y_merged_test, y_merged_pred, output_dict=True)
+    plt.figure(n, figsize=(8, 6))
+    n += 1
+    df = pd.DataFrame(class_report_merged).transpose()
+    df = df.loc[:, ['precision', 'recall']]
+    sns.heatmap(df.iloc[:-1, :])
+    if len(features) == 1:
+        plt.title(f'Heatmap Classification Report Merged {features[0]} predicting {target}')
+    else:
+        plt.title(f'Heatmap Classification Report Merged {features[0]} and {features[1]} predicting {target}')
+    plt.savefig(f'./output/class reports/Classification Report Merged {features} - {target}')
+
+    # visualize
+    plt.figure(n, figsize=(50, 35))
+    n += 1
+    tree.plot_tree(clf_merged, filled=True, feature_names=X_merged.columns, class_names=clf_merged.classes_.astype(str))
+    plt.title(f'Decision Tree Merged - {features[0]} - {target}')
+    plt.savefig(f'./output/Decision Trees/decision tree merged - {features[0]}-{target}.png', format='png')
+
+    plt.figure(n, figsize=(8, 6))
+    n += 1
+    y = []
+    for i in accuracies:
+        y.append(accuracies[i])
+    plt.bar(x, y, color='#008F91')
+    plt.ylim(min(y) - 0.15, max(y) + 0.15)
+    if len(features) == 2:
+        plt.title(f'Accuracies of {features[0]} and {features[1]} predicting {target}')
+    else:
+        plt.title(f'Accuracies of {features[0]} predicting {target}')
+    plt.savefig(f'./output/plots/accuracies {features} predicting {target}')
+
+"""Finale Version 17.06. 5x5"""
