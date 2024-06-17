@@ -1,3 +1,4 @@
+# Import packages
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -700,4 +701,4 @@ for target in targets:
     plt.savefig(f'./output/DT plots/accuracies {features} predicting {target}')
     plt.close()
 
-"""Finale Version 17.06. 5x5"""
+
